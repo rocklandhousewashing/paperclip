@@ -2720,6 +2720,11 @@ export function TaskChatThread(props: TaskChatThreadProps) {
     void retryPlan();
   };
 
+  // Header content may include a live sandboxed page preview. Keep it
+  // unmounted until history is revealed; an inert hidden copy still runs iframe
+  // scripts and duplicates every verified attachment fetch.
+  const revealedThreadHeader = historyRevealed ? threadHeaderWithBlockers : undefined;
+
   return (
     <TaskChatExpansionState.Provider value={expansionState.current}>
       <TaskChatScrollReady.Provider value={!historyPending}>
@@ -2760,7 +2765,6 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                   aria-label="Loading conversation"
                 >
                   <div className="mx-auto flex w-full max-w-(--tc-shell-max-w) flex-col gap-4 px-4 py-3">
-                    {threadHeader}
                     <Skeleton className="h-16 w-3/4 animate-none" />
                     <Skeleton className="h-24 w-4/5 self-end animate-none" />
                     <Skeleton className="h-16 w-3/4 animate-none" />
@@ -2781,7 +2785,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                       isMobile ? undefined : "min-h-0 flex-1 overflow-y-auto"
                     }
                   >
-                    {threadHeaderWithBlockers ? (
+                    {revealedThreadHeader ? (
                       <div
                         className={cn(
                           "mx-auto flex w-full max-w-(--tc-shell-max-w) flex-col gap-6 px-4",
@@ -2790,7 +2794,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                         )}
                         data-testid="task-chat-thread-header"
                       >
-                        {threadHeaderWithBlockers}
+                        {revealedThreadHeader}
                       </div>
                     ) : null}
                     <div className="px-3 py-10 text-center text-sm text-muted-foreground">
@@ -2811,7 +2815,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                   <TaskChatThreadView
                     items={items}
                     attachments={attachments}
-                    header={threadHeaderWithBlockers}
+                    header={revealedThreadHeader}
                     renderInteraction={renderInteraction}
                     renderBrief={renderBrief}
                     renderMessageActions={renderMessageActions}

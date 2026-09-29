@@ -31,7 +31,7 @@ export type RegisterReviewedHtmlResult =
   | { kind: "stale"; latestVersion: number };
 
 export interface ReviewedHtmlReviewStore {
-  getIssue(issueId: string): Promise<{ id: string; companyId: string } | null>;
+  getIssue(issueId: string): Promise<{ id: string; companyId: string; conversationAgentId: string | null } | null>;
   /** Only attachments that belong to exactly this issue and company. */
   listIssueAttachments(companyId: string, issueId: string, attachmentIds: string[]): Promise<ReviewedHtmlStoredAttachment[]>;
   getLatest(companyId: string, issueId: string): Promise<ReviewedHtmlReview | null>;
@@ -79,7 +79,7 @@ export function issueReviewedHtmlReviewService(db: Db): ReviewedHtmlReviewStore 
   return {
     getIssue: async (issueId) =>
       db
-        .select({ id: issues.id, companyId: issues.companyId })
+        .select({ id: issues.id, companyId: issues.companyId, conversationAgentId: issues.conversationAgentId })
         .from(issues)
         .where(eq(issues.id, issueId))
         .then((rows) => rows[0] ?? null),

@@ -185,12 +185,12 @@ export function issueReviewedHtmlRoutes(
   const store = options.store ?? issueReviewedHtmlReviewService(db);
   const logActivity = options.logActivity ?? defaultLogActivity;
 
-  /** Board-only issue lookup; missing and cross-company both return the same 404. */
+  /** Board-only ordinary issue lookup; missing, Agent Chat and cross-company all return 404. */
   async function loadIssueForBoard(req: Request, res: Response) {
     assertBoard(req);
     const issueId = req.params.issueId as string;
     const issue = LOWERCASE_UUID_RE.test(issueId) ? await store.getIssue(issueId) : null;
-    if (!issue || !hasCompanyAccess(req, issue.companyId)) {
+    if (!issue || issue.conversationAgentId !== null || !hasCompanyAccess(req, issue.companyId)) {
       res.status(404).json({ error: "Issue not found" });
       return null;
     }

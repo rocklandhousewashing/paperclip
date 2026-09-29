@@ -166,6 +166,18 @@ it("coordinates first reveal while keeping the composer and visible history moun
   expect(container.querySelector('[data-testid="mock-editor"]')).toBe(composer);
 });
 
+it("mounts a live header once only after history is revealed", async () => {
+  const header = <div data-testid="live-header">Private page preview</div>;
+  const props = { issueId: "preview-issue", comments: [], onAdd: async () => {}, threadHeader: header };
+  render(<TaskChatThread {...props} initialHistoryPending />);
+  expect(container.querySelectorAll('[data-testid="live-header"]')).toHaveLength(0);
+  render(<TaskChatThread {...props} initialHistoryPending={false} />);
+  await act(async () => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
+  expect(container.querySelectorAll('[data-testid="live-header"]')).toHaveLength(1);
+});
+
 it("keeps an acknowledged optimistic bubble mounted with its canonical comment target", () => {
   const comment = {
     companyId: "company",

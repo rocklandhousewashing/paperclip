@@ -2,7 +2,9 @@
 
 A board operator can register the exact bytes of one HTML issue attachment
 (plus up to 16 listed image/font assets) that they reviewed. Board users can then
-open that page from the issue route in the sandboxed preview component.
+open that page from an ordinary issue route in the sandboxed preview component.
+Agent Chat conversation issues are excluded because they have a separate
+conversation-owner write rule and do not render the ordinary issue header.
 
 ## Trust state
 

@@ -23,6 +23,7 @@ const COMPANY_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const ISSUE_1 = "11111111-1111-4111-8111-111111111111";
 const ISSUE_2 = "22222222-2222-4222-8222-222222222222";
 const ISSUE_B = "33333333-3333-4333-8333-333333333333";
+const CONVERSATION_ISSUE = "44444444-4444-4444-8444-444444444444";
 
 const HTML_ID = "a0000000-0000-4000-8000-000000000001";
 const PNG_ID = "a0000000-0000-4000-8000-000000000002";
@@ -95,9 +96,10 @@ function attachment(
 
 class MemoryStore implements ReviewedHtmlReviewStore {
   issues = new Map([
-    [ISSUE_1, { id: ISSUE_1, companyId: COMPANY_A }],
-    [ISSUE_2, { id: ISSUE_2, companyId: COMPANY_A }],
-    [ISSUE_B, { id: ISSUE_B, companyId: COMPANY_B }],
+    [ISSUE_1, { id: ISSUE_1, companyId: COMPANY_A, conversationAgentId: null }],
+    [ISSUE_2, { id: ISSUE_2, companyId: COMPANY_A, conversationAgentId: null }],
+    [ISSUE_B, { id: ISSUE_B, companyId: COMPANY_B, conversationAgentId: null }],
+    [CONVERSATION_ISSUE, { id: CONVERSATION_ISSUE, companyId: COMPANY_A, conversationAgentId: "agent-chat-1" }],
   ]);
   attachments: ReviewedHtmlStoredAttachment[] = [];
   reviews: ReviewedHtmlReview[] = [];
@@ -247,6 +249,17 @@ describe("board-reviewed HTML registry routes", () => {
       await request(createApp(BOARD)).post(`/api/issues/${ISSUE_1}/reviewed-html`).send(registerBody()).expect(201);
       const read = await request(createApp(VIEWER)).get(`/api/issues/${ISSUE_1}/reviewed-html/1`);
       expect(read.status).toBe(200);
+    });
+
+    it("excludes Agent Chat conversation issues from registration, reads and revocation", async () => {
+      const app = createApp(BOARD);
+      await request(app).post(`/api/issues/${CONVERSATION_ISSUE}/reviewed-html`).send(registerBody()).expect(404);
+      await request(app).get(`/api/issues/${CONVERSATION_ISSUE}/reviewed-html`).expect(404);
+      await request(app).get(`/api/issues/${CONVERSATION_ISSUE}/reviewed-html/1`).expect(404);
+      await request(app).post(`/api/issues/${CONVERSATION_ISSUE}/reviewed-html/1/revoke`)
+        .send({ companyId: COMPANY_A }).expect(404);
+      expect(store.reviews).toHaveLength(0);
+      expect(logActivity).not.toHaveBeenCalled();
     });
 
     it("rejects bodies carrying extra fields such as paths or self-asserted trust", async () => {
