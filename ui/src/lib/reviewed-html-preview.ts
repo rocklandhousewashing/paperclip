@@ -9,10 +9,10 @@
  * nothing. This module only checks that the bytes it downloads match the
  * descriptor; it does not decide who may review or approve anything.
  *
- * PRODUCTION STATUS
- * Blocked: no server endpoint issues reviewed-byte descriptors yet, so nothing
- * in the app should construct one from attachment metadata. See
- * `REVIEWED_HTML_PREVIEW_INTEGRATION_STATUS`.
+ * INTEGRATION STATUS
+ * The source now includes a board-only issue review registry. This source
+ * change still requires a reviewed package build, migration and installation.
+ * See `REVIEWED_HTML_PREVIEW_INTEGRATION_STATUS`.
  *
  * NETWORK RESIDUAL
  * The page runs in an opaque-origin iframe (`sandbox="allow-scripts"`) under a
@@ -27,7 +27,7 @@ export const REVIEWED_HTML_PREVIEW_DESCRIPTOR_KIND = "paperclip.reviewed-html-pr
 export const REVIEWED_HTML_PREVIEW_DESCRIPTOR_VERSION = 1 as const;
 
 export const REVIEWED_HTML_PREVIEW_INTEGRATION_STATUS =
-  "blocked-pending-trusted-server-descriptor" as const;
+  "source-integrated-pending-install" as const;
 
 /** Exactly `allow-scripts`: no same-origin, forms, popups, downloads or top navigation. */
 export const REVIEWED_HTML_PREVIEW_IFRAME_SANDBOX = "allow-scripts" as const;

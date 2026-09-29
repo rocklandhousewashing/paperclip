@@ -17,9 +17,9 @@ import { cn } from "../lib/utils";
  * has been downloaded from its fixed attachment route and verified against
  * the reviewed-byte descriptor.
  *
- * The descriptor must come from a trusted server/caller that recorded the
- * reviewed bytes. No such endpoint exists yet, so this component is not wired
- * into issue views; production integration is blocked on that server work.
+ * The descriptor must come from the board-only issue review registry, which
+ * records the exact reviewed bytes. Generic attachment metadata is not a
+ * trusted descriptor.
  *
  * The sandbox and injected CSP reduce, but do not eliminate, network access:
  * a page can still navigate its own frame, which issues a request. The

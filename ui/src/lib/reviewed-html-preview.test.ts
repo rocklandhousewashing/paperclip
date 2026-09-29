@@ -480,7 +480,7 @@ describe("sandbox and network contract", () => {
     expect(risks).not.toMatch(/network[- ]free|no network access|fully isolated/i);
   });
 
-  it("marks production integration as blocked on a trusted server descriptor", () => {
-    expect(REVIEWED_HTML_PREVIEW_INTEGRATION_STATUS).toBe("blocked-pending-trusted-server-descriptor");
+  it("marks source integration as pending installation", () => {
+    expect(REVIEWED_HTML_PREVIEW_INTEGRATION_STATUS).toBe("source-integrated-pending-install");
   });
 });

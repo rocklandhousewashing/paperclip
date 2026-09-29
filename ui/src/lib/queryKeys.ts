@@ -366,6 +366,10 @@ export const queryKeys = {
       ["issues", "attachments", issueId] as const,
     attachmentPreview: (attachmentId: string) =>
       ["issues", "attachment-preview", attachmentId] as const,
+    reviewedHtmlSummary: (issueId: string) =>
+      ["issues", "reviewed-html", issueId] as const,
+    reviewedHtmlDescriptor: (issueId: string, reviewVersion: number) =>
+      ["issues", "reviewed-html", issueId, reviewVersion] as const,
     documents: (issueId: string) => ["issues", "documents", issueId] as const,
     document: (issueId: string, key: string) =>
       ["issues", "document", issueId, key] as const,
