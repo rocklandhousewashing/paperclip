@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlertTriangle, Download, FileCode2, Loader2 } from "lucide-react";
 import {
   loadReviewedHtmlPreview,
@@ -58,6 +58,18 @@ export function ReviewedHtmlAttachmentPreview({ descriptor, currentScope, classN
   const [state, setState] = useState<PreviewState>({ status: "loading", key: renderKey });
   const visibleState: PreviewState = state.key === renderKey ? state : { status: "loading", key: renderKey };
   const frameLoads = useRef(0);
+  const sectionRef = useRef<HTMLElement>(null);
+  const reloadButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusOnClose = useRef(false);
+
+  // Closing the frame removes whatever had focus inside it. Hand keyboard focus
+  // to the Reload control only if this preview owned focus when the page
+  // navigated. A layout effect runs in the same commit that removes the frame.
+  useLayoutEffect(() => {
+    if (visibleState.status !== "navigated" || !restoreFocusOnClose.current) return;
+    restoreFocusOnClose.current = false;
+    reloadButtonRef.current?.focus();
+  }, [visibleState.status]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -88,7 +100,13 @@ export function ReviewedHtmlAttachmentPreview({ descriptor, currentScope, classN
     frameLoads.current += 1;
     // The first load is the srcdoc itself; any later load means the page
     // navigated its own frame, which may already have made a request.
-    if (frameLoads.current > 1) setState({ status: "navigated", key: renderKey });
+    if (frameLoads.current > 1) {
+      // Read focus now: once the frame unmounts, the browser resets it to <body>,
+      // which is indistinguishable from "nothing was focused".
+      const active = document.activeElement;
+      restoreFocusOnClose.current = !!active && !!sectionRef.current?.contains(active);
+      setState({ status: "navigated", key: renderKey });
+    }
   };
 
   const filename = typeof descriptor?.html?.filename === "string" ? descriptor.html.filename : "attachment";
@@ -99,6 +117,8 @@ export function ReviewedHtmlAttachmentPreview({ descriptor, currentScope, classN
 
   return (
     <section
+      ref={sectionRef}
+      tabIndex={-1}
       aria-label={frameTitle}
       data-reviewed-html-preview={visibleState.status}
       className={cn("flex min-w-0 flex-col gap-2 rounded-md border border-border bg-card p-3", className)}
@@ -119,7 +139,7 @@ export function ReviewedHtmlAttachmentPreview({ descriptor, currentScope, classN
           <a
             href={downloadPath}
             download
-            className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+            className="ml-auto inline-flex min-h-6 items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline pointer-coarse:min-h-11"
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             Download original
@@ -145,17 +165,31 @@ export function ReviewedHtmlAttachmentPreview({ descriptor, currentScope, classN
         >
           <p className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>
-              {visibleState.status === "failed"
-                ? `Preview unavailable: ${visibleState.message}`
-                : "The page tried to navigate its frame, so the preview was closed. That navigation may already have made a network request."}
-            </span>
+            {visibleState.status === "failed" ? (
+              <span className="flex min-w-0 flex-col gap-1">
+                <span>
+                  This page could not be checked against its reviewed copy, so it is not shown. Ask for a new
+                  preview link if you still need it.
+                </span>
+                <span className="break-words text-xs">Details: {visibleState.message}</span>
+              </span>
+            ) : (
+              <span>
+                The page tried to navigate its frame, so the preview was closed. That navigation may already have
+                made a network request.
+              </span>
+            )}
           </p>
           {visibleState.status === "navigated" ? (
             <button
+              ref={reloadButtonRef}
               type="button"
-              onClick={() => setReloadToken((token) => token + 1)}
-              className="self-start text-xs font-medium underline underline-offset-2"
+              onClick={() => {
+                // The button disappears while reloading; keep focus in this preview.
+                sectionRef.current?.focus();
+                setReloadToken((token) => token + 1);
+              }}
+              className="inline-flex min-h-6 items-center self-start text-xs font-medium underline underline-offset-2 pointer-coarse:min-h-11"
             >
               Reload preview
             </button>

@@ -87,8 +87,57 @@ describe("ReviewedHtmlAttachmentPreview", () => {
     await waitFor(() => container.querySelector('[role="alert"]') !== null);
 
     expect(container.querySelector("iframe")).toBeNull();
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("reviewed SHA-256");
+    const alert = container.querySelector('[role="alert"]')?.textContent ?? "";
+    // Plain-language outcome and next step first; the technical reason stays available.
+    expect(alert).toMatch(/not shown/i);
+    expect(alert).toMatch(/new preview link/i);
+    expect(alert).toContain("reviewed SHA-256");
     expect(container.textContent).not.toMatch(NETWORK_FREE_CLAIM);
+  });
+
+  it("keeps keyboard focus in the preview when a navigating page is closed and reloaded", async () => {
+    const { fetchImpl } = createFixtureFetch(window.location.origin, [HTML_FILE, ...ASSET_FILES]);
+    vi.stubGlobal("fetch", fetchImpl);
+    flushSync(() => root.render(<ReviewedHtmlAttachmentPreview descriptor={buildDescriptor()} currentScope={FIXTURE_SCOPE} />));
+    await waitFor(() => container.querySelector("iframe") !== null);
+
+    // The keyboard user is inside the page (the parent document reports the
+    // iframe as active); then the srcdoc load, then the page navigating its own frame.
+    const iframe = container.querySelector("iframe")!;
+    iframe.focus();
+    expect(document.activeElement).toBe(iframe);
+    iframe.dispatchEvent(new Event("load"));
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() => container.querySelector('[role="alert"]') !== null);
+
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector('[role="alert"]')?.textContent).toMatch(/network request/i);
+    const reload = document.activeElement as HTMLElement | null;
+    expect(reload?.tagName).toBe("BUTTON");
+    expect(reload?.textContent).toMatch(/reload preview/i);
+
+    reload!.click();
+    await waitFor(() => container.querySelector("iframe") !== null);
+    const region = document.activeElement as HTMLElement | null;
+    expect(region?.getAttribute("aria-label")).toBe("Draft page preview: onboarding-wizard.html");
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("does not move focus the owner already placed elsewhere when the page navigates", async () => {
+    const outside = document.createElement("button");
+    document.body.append(outside);
+    const { fetchImpl } = createFixtureFetch(window.location.origin, [HTML_FILE, ...ASSET_FILES]);
+    vi.stubGlobal("fetch", fetchImpl);
+    flushSync(() => root.render(<ReviewedHtmlAttachmentPreview descriptor={buildDescriptor()} currentScope={FIXTURE_SCOPE} />));
+    await waitFor(() => container.querySelector("iframe") !== null);
+
+    outside.focus();
+    const iframe = container.querySelector("iframe")!;
+    iframe.dispatchEvent(new Event("load"));
+    iframe.dispatchEvent(new Event("load"));
+    await waitFor(() => container.querySelector('[role="alert"]') !== null);
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
   });
 
   it("unmounts old reviewed bytes synchronously when the current review revision changes", async () => {

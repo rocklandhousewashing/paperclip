@@ -109,7 +109,7 @@ export function IssueReviewedHtmlSection({ companyId, issueId, className }: Issu
     activeVersion !== null && activeVersion !== requestedVersion ? (
       <Link
         to={{ search: reviewedHtmlSearch(location.search, activeVersion), hash: location.hash }}
-        className="self-start text-xs font-medium underline underline-offset-2"
+        className="inline-flex min-h-6 items-center self-start text-xs font-medium underline underline-offset-2 pointer-coarse:min-h-11"
       >
         Open current version (v{activeVersion})
       </Link>
@@ -149,7 +149,7 @@ export function IssueReviewedHtmlSection({ companyId, issueId, className }: Issu
         <Link
           to={closeTo}
           aria-label="Close reviewed page"
-          className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+          className="ml-auto inline-flex min-h-6 items-center gap-1 text-xs pointer-coarse:min-h-11 text-muted-foreground underline-offset-2 hover:underline"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
           Close
