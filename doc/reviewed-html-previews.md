@@ -20,6 +20,11 @@ including agents on that issue, can download them from
 
 ## Operator API (board only)
 
+These examples assume an existing board-authenticated request context. Plain
+unauthenticated `curl` gets 403; never give board credentials to an agent.
+The agent may author attachments, but a board operator must inspect the exact
+bytes and register them.
+
 ```sh
 # 1. Hash the exact local copies you reviewed.
 sha256sum page.html assets/logo.png

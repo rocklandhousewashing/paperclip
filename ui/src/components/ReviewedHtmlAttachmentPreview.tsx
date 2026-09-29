@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Download, Loader2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Download, FileCode2, Loader2 } from "lucide-react";
 import {
   loadReviewedHtmlPreview,
   REVIEWED_HTML_PREVIEW_IFRAME_SANDBOX,
@@ -106,7 +106,7 @@ export function ReviewedHtmlAttachmentPreview({ descriptor, currentScope, classN
       <header className="flex flex-wrap items-center gap-2 text-sm">
         {visibleState.status === "ready" ? (
           <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+            <FileCode2 className="h-3.5 w-3.5" aria-hidden="true" />
             Private draft
           </span>
         ) : (
