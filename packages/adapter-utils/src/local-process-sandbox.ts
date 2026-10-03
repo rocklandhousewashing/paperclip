@@ -39,6 +39,13 @@ export interface LocalProcessSandboxSpawnTarget {
   cleanup?: () => Promise<void>;
 }
 
+interface ManagedGitWorktreeSandboxMetadata {
+  version?: unknown;
+  worktreePath?: unknown;
+  gitDir?: unknown;
+  commonDir?: unknown;
+}
+
 interface NetworkAllowlistRule {
   hostname: string;
   port: string | null;
@@ -81,6 +88,102 @@ function normalizeAbsolutePath(candidate: string, label: string): string {
 
 async function pathExists(candidate: string): Promise<boolean> {
   return fs.lstat(candidate).then(() => true).catch(() => false);
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function isContainedBy(parent: string, candidate: string): boolean {
+  const relative = path.relative(parent, candidate);
+  return relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+/**
+ * Validate the server-supplied Git administration metadata for a native
+ * linked worktree. This never accepts adapter configuration paths: the
+ * metadata must agree with both the recorded workspace and the linked
+ * worktree's on-disk Git pointers before the common Git directory is mounted.
+ */
+export async function resolveManagedGitWorktreeSandboxPaths(
+  workspaceContextValue: unknown,
+  workspaceDirValue: string,
+): Promise<LocalProcessSandboxPath[]> {
+  const workspaceContext = record(workspaceContextValue);
+  const metadata = record(workspaceContext.managedGitWorktree) as ManagedGitWorktreeSandboxMetadata;
+  if (Object.keys(metadata).length === 0) {
+    if (workspaceContext.strategy === "git_worktree") {
+      throw new Error("Managed Git worktree sandbox metadata is required for a recorded git_worktree workspace.");
+    }
+    return [];
+  }
+
+  const workspaceDir = normalizeAbsolutePath(workspaceDirValue, "Sandbox workspaceDir");
+  const recordedWorktree = typeof workspaceContext.worktreePath === "string"
+    ? normalizeAbsolutePath(workspaceContext.worktreePath, "Workspace worktreePath")
+    : null;
+  if (workspaceContext.strategy !== "git_worktree" || metadata.version !== 1 || !recordedWorktree) {
+    throw new Error("Managed Git worktree sandbox metadata requires a recorded git_worktree workspace.");
+  }
+
+  const metadataWorktree = typeof metadata.worktreePath === "string"
+    ? normalizeAbsolutePath(metadata.worktreePath, "Managed Git worktree path")
+    : null;
+  const metadataGitDir = typeof metadata.gitDir === "string"
+    ? normalizeAbsolutePath(metadata.gitDir, "Managed Git directory")
+    : null;
+  const metadataCommonDir = typeof metadata.commonDir === "string"
+    ? normalizeAbsolutePath(metadata.commonDir, "Managed Git common directory")
+    : null;
+  if (!metadataWorktree || !metadataGitDir || !metadataCommonDir) {
+    throw new Error("Managed Git worktree sandbox metadata is incomplete.");
+  }
+
+  const [realWorkspaceDir, realRecordedWorktree, realMetadataWorktree] = await Promise.all([
+    fs.realpath(workspaceDir),
+    fs.realpath(recordedWorktree),
+    fs.realpath(metadataWorktree),
+  ]);
+  if (realWorkspaceDir !== realRecordedWorktree || realWorkspaceDir !== realMetadataWorktree) {
+    throw new Error("Managed Git worktree sandbox metadata does not match the execution workspace.");
+  }
+
+  const gitMarkerPath = path.join(realWorkspaceDir, ".git");
+  const gitMarkerStat = await fs.lstat(gitMarkerPath);
+  if (!gitMarkerStat.isFile() || gitMarkerStat.isSymbolicLink()) {
+    throw new Error("Managed Git worktree requires a regular .git pointer file.");
+  }
+  const marker = (await fs.readFile(gitMarkerPath, "utf8")).trim();
+  const prefix = "gitdir:";
+  if (!marker.toLowerCase().startsWith(prefix)) {
+    throw new Error("Managed Git worktree .git pointer is invalid.");
+  }
+  const pointerValue = marker.slice(prefix.length).trim();
+  if (!pointerValue) throw new Error("Managed Git worktree .git pointer is empty.");
+  const actualGitDir = await fs.realpath(path.resolve(realWorkspaceDir, pointerValue));
+  const [trustedGitDir, trustedCommonDir] = await Promise.all([
+    fs.realpath(metadataGitDir),
+    fs.realpath(metadataCommonDir),
+  ]);
+  if (actualGitDir !== trustedGitDir) {
+    throw new Error("Managed Git worktree pointers do not match trusted server metadata.");
+  }
+  const actualCommonDirPointer = (await fs.readFile(path.join(actualGitDir, "commondir"), "utf8")).trim();
+  if (!actualCommonDirPointer) throw new Error("Managed Git worktree common directory pointer is empty.");
+  const actualCommonDir = await fs.realpath(path.resolve(actualGitDir, actualCommonDirPointer));
+  if (
+    actualCommonDir !== trustedCommonDir ||
+    !isContainedBy(path.join(trustedCommonDir, "worktrees"), trustedGitDir)
+  ) {
+    throw new Error("Managed Git worktree pointers do not match trusted server metadata.");
+  }
+
+  // The per-worktree directory is contained by the common directory. Mounting
+  // the common directory once makes the linked worktree functional without
+  // exposing the base source checkout itself.
+  return [{ path: trustedCommonDir, access: "rw" }];
 }
 
 function parentDirectories(candidate: string): string[] {

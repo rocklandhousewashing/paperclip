@@ -36,6 +36,7 @@ import {
   realizeExecutionWorkspace,
   refreshRemoteTrackingBaseRef,
   releaseRuntimeServicesForRun,
+  resolveManagedGitWorktreeSandboxMetadata,
   UnresolvedWorkspaceBaseRefError,
   resetRuntimeServicesForTests,
   MANAGED_RUNTIME_PUBLIC_URL_ENV,
@@ -854,6 +855,16 @@ describe("realizeExecutionWorkspace", () => {
     expect(first.branchName).toBe("PAP-447-add-worktree-support");
     expect(first.cwd).toContain(path.join(".paperclip", "worktrees"));
     await expect(fs.stat(path.join(first.cwd, ".git"))).resolves.toBeTruthy();
+    const sandboxMetadata = await resolveManagedGitWorktreeSandboxMetadata(first);
+    expect(sandboxMetadata).toMatchObject({
+      version: 1,
+      worktreePath: await fs.realpath(first.cwd),
+      commonDir: await fs.realpath(path.join(repoRoot, ".git")),
+    });
+    expect(path.relative(
+      path.join(sandboxMetadata!.commonDir, "worktrees"),
+      sandboxMetadata!.gitDir,
+    )).not.toMatch(/^\.\.(?:[/\\]|$)/);
 
     const second = await realizeExecutionWorkspace({
       ...realizationInput,
