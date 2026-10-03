@@ -19,8 +19,8 @@ beforeEach(() => {
   host = document.createElement("div"); document.body.append(host); root = createRoot(host);
 });
 afterEach(() => { flushSync(() => root.unmount()); host.remove(); });
-function Harness({ name = "Account", provider = "openai", enabled = true }: { name?: string; provider?: "anthropic" | "openai"; enabled?: boolean }) {
-  const login = useLocalAiLogin("company", { provider, method: "subscription", name, ownership: "personal", agentIds: [], allAgents: true }, enabled, { allowHostClaude: true });
+function Harness({ name = "Account", provider = "openai", enabled = true, connectionId }: { name?: string; provider?: "anthropic" | "openai"; enabled?: boolean; connectionId?: string }) {
+  const login = useLocalAiLogin("company", { provider, method: "subscription", name, ownership: "personal", agentIds: [], allAgents: true, connectionId }, enabled, { allowHostClaude: true });
   return <><LocalProviderLoginInstructions adapterType={provider === "anthropic" ? "claude_local" : "codex_local"} login={login} /><button onClick={() => void login.connect()}>Connect</button></>;
 }
 it("checks once under StrictMode, preserves renaming and navigation, and cancels only on explicit retry", async () => {
@@ -50,6 +50,18 @@ it.each(["anthropic", "openai"] as const)("detects an already-signed-in %s accou
   expect(host.textContent).not.toContain("Run this in a terminal");
   expect(api.connectLocal).not.toHaveBeenCalled();
   if (provider === "anthropic") expect(api.startLocalLogin).not.toHaveBeenCalled();
+});
+it("uses an isolated Claude login when reconnecting an existing account", async () => {
+  flushSync(() => root.render(<Harness provider="anthropic" connectionId="connection-existing" />));
+  await vi.waitFor(() => expect(host.textContent).toContain("isolated codex login"));
+  expect(api.startLocalLogin).toHaveBeenCalledWith("company", expect.objectContaining({
+    provider: "anthropic",
+    connectionId: "connection-existing",
+  }));
+  expect(api.checkLocalLogin).toHaveBeenCalledWith("company", expect.objectContaining({
+    connectionId: "connection-existing",
+    localSessionId: "attempt-1",
+  }));
 });
 it("detects terminal completion on focus without needing a Connect attempt", async () => {
   flushSync(() => root.render(<Harness />));

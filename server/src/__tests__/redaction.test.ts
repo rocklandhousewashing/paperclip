@@ -10,6 +10,32 @@ import {
 } from "../redaction.js";
 
 describe("redaction", () => {
+  it("preserves credential-related prose, metadata, and dotted filenames", () => {
+    const input = {
+      body: "Keep the private key in a secret manager. Document credential handling and token permissions. Use bearer tokens for authentication. Prefer bearer authentication.",
+      tokenPolicy: "least privilege",
+      secretStorage: "vault",
+      credentialHandling: "harness",
+      authorizationRequired: true,
+      path: "deployment.credentials.example.md",
+    };
+    expect(sanitizeRecord(input)).toEqual(input);
+    expect(redactSensitiveText(input.body)).toBe(input.body);
+    expect(sanitizeRecord({ credentials: { provider: "opaque-value" }, passwordValue: "opaque-value", authorization_code: "opaque-value" }))
+      .toEqual({ credentials: REDACTED_EVENT_VALUE, passwordValue: REDACTED_EVENT_VALUE, authorization_code: REDACTED_EVENT_VALUE });
+    expect(redactSensitiveText("--token-budget 4000 SECRET_STORAGE=vault")).toBe("--token-budget 4000 SECRET_STORAGE=vault");
+  });
+
+  it("preserves public provider hostnames in a network allowlist", () => {
+    const networkAllowlist = [
+      "api.anthropic.com",
+      "claude.ai",
+      "platform.claude.com",
+    ];
+
+    expect(sanitizeRecord({ networkAllowlist })).toEqual({ networkAllowlist });
+  });
+
   it("keeps the discriminator allowlist in exact PRP v1 schema parity", () => {
     const schema = JSON.parse(
       readFileSync(

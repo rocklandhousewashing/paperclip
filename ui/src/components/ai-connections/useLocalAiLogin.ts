@@ -4,7 +4,10 @@ import { aiConnectionsApi } from "@/api/ai-connections";
 
 /** Every authentication host uses the same local credential check and login lifecycle. */
 export function useLocalAiLogin(companyId: string | null, intent: AiConnectionLoginIntent, enabled: boolean, options: { allowHostClaude?: boolean } = {}) {
-  const isolated = intent.provider !== "anthropic" || !options.allowHostClaude;
+  // A reconnect must prove and rotate the selected account itself. Importing
+  // the host Claude login here can silently re-save an unrelated or expired
+  // terminal credential into the connection the user meant to repair.
+  const isolated = Boolean(intent.connectionId) || intent.provider !== "anthropic" || !options.allowHostClaude;
   const active = Boolean(companyId && enabled);
   const [attempt, setAttempt] = useState<LocalAiLoginAttempt | null>(null);
   const [status, setStatus] = useState<LocalAiLoginStatus["status"] | null>(null);
