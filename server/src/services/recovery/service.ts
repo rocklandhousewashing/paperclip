@@ -1,3 +1,6 @@
+import { createHash, randomUUID } from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { hasLiveLegacyController } from "../legacy-controller-lease.js";
 import { instanceSettingsService } from "../instance-settings.js";
 import { isWaitingConversation, settleConversationTurn, deliverConversationComments } from "../agent-conversations.js";
@@ -226,8 +229,99 @@ type SuccessfulLatestIssueRun = NonNullable<LatestIssueRun> & {
   status: "succeeded";
 };
 
+const TRADING_AUTH_COMPANY_ID = "1efd477a-a4ab-481a-ae07-426fcb88e88c";
+const TRADING_AUTH_SCOUT_AGENT_ID = "4cb9e4b6-30d1-417b-8f66-6e25fd98caf8";
+const TRADING_AUTH_DEFAULT_OUTBOX = "/home/ubuntu/paperclip/home/instances/default/trading-incident-notices";
+const TRADING_AUTH_MAX_BYTES = 16_384;
+
+type TradingAuthIncidentInput = {
+  companyId: string;
+  agentId: string;
+  agentName: string;
+  issueId: string;
+  issueIdentifier: string;
+  runId: string;
+  errorCode: "claude_auth_required";
+  state: "blocked" | "recovered";
+  blockedTransitionAt: Date;
+  generatedAt?: Date;
+  outboxDir?: string;
+};
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+async function assertRegularOrAbsent(filePath: string) {
+  try {
+    const stat = await fs.lstat(filePath);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("incident target is not a regular file");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
+async function ensureSafeOutbox(outboxDir: string) {
+  const parent = path.dirname(outboxDir);
+  const parentStat = await fs.lstat(parent);
+  if (!parentStat.isDirectory() || parentStat.isSymbolicLink()) throw new Error("incident outbox parent is unsafe");
+  if (await fs.realpath(parent) !== path.resolve(parent)) throw new Error("incident outbox parent path is unsafe");
+  try {
+    const stat = await fs.lstat(outboxDir);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("incident outbox is unsafe");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    await fs.mkdir(outboxDir, { mode: 0o700 });
+  }
+}
+
+async function writeTradingAuthIncident(input: TradingAuthIncidentInput) {
+  if (input.companyId !== TRADING_AUTH_COMPANY_ID || input.agentId !== TRADING_AUTH_SCOUT_AGENT_ID) return null;
+  if (!isUuid(input.issueId) || !isUuid(input.runId)) throw new Error("invalid trading auth incident UUID");
+  if (!/^TRA-[1-9][0-9]*$/.test(input.issueIdentifier)) throw new Error("invalid trading issue identifier");
+  if (!input.agentName.trim() || input.agentName.length > 80) throw new Error("invalid trading agent name");
+
+  const generatedAt = input.generatedAt ?? new Date();
+  const ageMs = generatedAt.getTime() - Date.now();
+  if (!Number.isFinite(generatedAt.getTime()) || ageMs > 5_000 || ageMs < -86_400_000) {
+    throw new Error("invalid trading auth incident timestamp");
+  }
+  const transitionIso = input.blockedTransitionAt.toISOString();
+  const incidentId = createHash("sha256").update(`${input.issueId}:${transitionIso}`).digest("hex");
+  const payload = {
+    schema: "trading-auth-incident.v1",
+    company_id: input.companyId,
+    agent_id: input.agentId,
+    agent_name: input.agentName.trim(),
+    issue_id: input.issueId,
+    issue_identifier: input.issueIdentifier,
+    run_id: input.runId,
+    error_code: input.errorCode,
+    state: input.state,
+    generated_at: generatedAt.toISOString(),
+    incident_id: incidentId,
+  };
+  const body = `${JSON.stringify(payload)}\n`;
+  if (Buffer.byteLength(body) > TRADING_AUTH_MAX_BYTES) throw new Error("trading auth incident exceeds size limit");
+
+  const outboxDir = input.outboxDir ?? TRADING_AUTH_DEFAULT_OUTBOX;
+  await ensureSafeOutbox(outboxDir);
+  const target = path.join(outboxDir, `${incidentId}--${input.state}.json`);
+  await assertRegularOrAbsent(target);
+  const temp = path.join(outboxDir, `.${incidentId}.${randomUUID()}.tmp`);
+  try {
+    await fs.writeFile(temp, body, { encoding: "utf8", mode: 0o600, flag: "wx" });
+    await fs.rename(temp, target);
+  } finally {
+    await fs.rm(temp, { force: true }).catch(() => undefined);
+  }
+  return { incidentId, target, payload };
+}
+
+
 export type StrandedRecoveryCause =
   | "stranded_assigned_issue"
+  | "claude_auth_required"
   | "deliberate_wait_without_target"
   | "process_lost"
   | "provider_quota"
@@ -381,6 +475,7 @@ function resolveStrandedRecoveryCause(
   explicitCause?: StrandedRecoveryCause,
 ): StrandedRecoveryCause {
   if (explicitCause) return explicitCause;
+  if (latestRun?.errorCode === "claude_auth_required") return "claude_auth_required";
   if (isProviderQuotaRecovery(latestRun)) return "provider_quota";
   if (latestRun?.errorCode === "process_lost") return "process_lost";
   if (latestRun?.errorCode === "codex_output_inactivity_monitor") {
@@ -483,6 +578,7 @@ const NON_RETRYABLE_CONTINUATION_ERROR_CODES = new Set<string>([
   "agent_not_found",
   "budget_blocked",
   "budget_exhausted",
+  "claude_auth_required",
   "issue_paused",
   "issue_dependencies_blocked",
   // This is the fail-closed fallback for exceptions raised before an adapter
@@ -2487,6 +2583,8 @@ export function recoveryService(
       nextAction:
         recoveryCause === SUCCESSFUL_RUN_MISSING_STATE_REASON
           ? "Board operator: inspect the run evidence, then explicitly choose a valid issue disposition, retry the original owner, reassign, or intentionally resolve the task."
+          : recoveryCause === "claude_auth_required"
+            ? "Reconnect this agent's own Claude subscription through the supported login flow, verify authentication, then resume the same source issue once."
           : recoveryCause === "process_lost"
             ? "Board operator: inspect the retry history, then explicitly retry the original owner, reassign, or intentionally resolve the task."
             : recoveryCause === "provider_quota"
@@ -3773,6 +3871,31 @@ export function recoveryService(
       blockedByIssueIds: blockerIds,
     });
     if (!updated) return null;
+    if (
+      recoveryCause === "claude_auth_required" &&
+      updated.updatedAt &&
+      updated.identifier &&
+      input.latestRun?.id &&
+      input.latestRun.agentId
+    ) {
+      const failedAgent = await getAgent(input.latestRun.agentId);
+      if (failedAgent) {
+        await writeTradingAuthIncident({
+          companyId: updated.companyId,
+          agentId: failedAgent.id,
+          agentName: failedAgent.name,
+          issueId: updated.id,
+          issueIdentifier: updated.identifier,
+          runId: input.latestRun.id,
+          errorCode: "claude_auth_required",
+          state: "blocked",
+          blockedTransitionAt: updated.updatedAt,
+        }).catch((err) => logger.warn(
+          { err, issueId: updated.id, runId: input.latestRun?.id },
+          "failed to write trading auth incident",
+        ));
+      }
+    }
     if (isProviderQuotaWait) return updated;
     const sourceAssigneePreserved =
       updated.assigneeAgentId === input.issue.assigneeAgentId &&

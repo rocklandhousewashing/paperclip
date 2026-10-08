@@ -4032,6 +4032,76 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
     expect(mockAdapterExecute).toHaveBeenCalledTimes(1);
   });
 
+  it("blocks Claude authentication failures without unattended retries", async () => {
+    mockAdapterExecute.mockResolvedValueOnce({
+      exitCode: 1,
+      signal: null,
+      timedOut: false,
+      errorCode: "claude_auth_required",
+      errorFamily: "transient_upstream",
+      errorMessage: "Authentication required",
+      provider: "anthropic",
+      model: "claude",
+      resultJson: { errorFamily: "transient_upstream" },
+    });
+
+    const { agentId, runId, issueId } = await seedQueuedIssueRunFixture();
+    const heartbeat = heartbeatService(db);
+    await heartbeat.resumeQueuedRuns();
+    await waitForRunToSettle(heartbeat, runId);
+    await heartbeat.waitForRunExecutionDrain(runId);
+
+    const runs = await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.agentId, agentId));
+    expect(runs.filter((run) => run.id === runId || run.retryOfRunId === runId)).toEqual([
+      expect.objectContaining({ id: runId, status: "failed", errorCode: "claude_auth_required" }),
+    ]);
+    expect(await db.select().from(issues).where(eq(issues.id, issueId)).then((rows) => rows[0])).toMatchObject({
+      status: "blocked",
+    });
+    expect(
+      await db.select().from(issueRecoveryActions).where(eq(issueRecoveryActions.sourceIssueId, issueId)),
+    ).toEqual([
+      expect.objectContaining({
+        ownerType: "board",
+        ownerAgentId: null,
+        cause: "claude_auth_required",
+        nextAction:
+          "Reconnect this agent's own Claude subscription through the supported login flow, verify authentication, then resume the same source issue once.",
+      }),
+    ]);
+    expect(mockAdapterExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies a preexisting Claude authentication failure after restart", async () => {
+    const { companyId, agentId, runId, issueId } = await seedStrandedIssueFixture({
+      status: "in_progress",
+      runStatus: "failed",
+      runErrorCode: "claude_auth_required",
+      runError: "Authentication required",
+    });
+
+    const result = await heartbeatService(db).reconcileStrandedAssignedIssues();
+    expect(result.continuationRequeued).toBe(0);
+    expect(result.escalated).toBe(1);
+    expect(result.issueIds).toContain(issueId);
+    expect(await db.select().from(issues).where(eq(issues.id, issueId)).then((rows) => rows[0])).toMatchObject({
+      status: "blocked",
+    });
+    expect(
+      await db.select().from(issueRecoveryActions).where(eq(issueRecoveryActions.sourceIssueId, issueId)),
+    ).toEqual([
+      expect.objectContaining({
+        companyId,
+        previousOwnerAgentId: agentId,
+        sourceIssueId: issueId,
+        cause: "claude_auth_required",
+        ownerType: "board",
+        ownerAgentId: null,
+        evidence: expect.objectContaining({ latestRunId: runId }),
+      }),
+    ]);
+  });
+
   it("schedules bounded retries for failed accepted interaction continuation wakes", async () => {
     const { companyId, agentId, runId, wakeupRequestId, issueId } =
       await seedQueuedIssueRunFixture();

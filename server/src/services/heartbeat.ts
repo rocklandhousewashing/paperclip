@@ -777,6 +777,9 @@ const WORKSPACE_VALIDATION_FAILURE_CODE = "workspace_validation_failed";
 const WORKSPACE_VALIDATION_RECOVERY_CAUSE = "workspace_validation_failed";
 const CONFIGURATION_INCOMPLETE_FAILURE_CODE = "configuration_incomplete";
 const CONFIGURATION_INCOMPLETE_RECOVERY_CAUSE = "configuration_incomplete";
+const CLAUDE_AUTH_REQUIRED_ERROR_CODE = "claude_auth_required";
+const CLAUDE_AUTH_REQUIRED_RECOVERY_CAUSE = "claude_auth_required";
+
 const EXECUTION_REVIEW_PARTICIPANT_RECOVERY_RETRY_REASON =
   "execution_review_participant_recovery";
 const EXECUTION_REVIEW_PARTICIPANT_RECOVERY_WAKE_REASON =
@@ -1081,6 +1084,7 @@ function readTransientRetryNotBeforeFromRun(
 function readTransientRecoveryContractFromRun(
   run: Pick<typeof heartbeatRuns.$inferSelect, "errorCode" | "resultJson">,
 ) {
+  if (run.errorCode === CLAUDE_AUTH_REQUIRED_ERROR_CODE) return null;
   const errorFamily = readHeartbeatRunErrorFamily(run);
   return errorFamily === "transient_upstream" ||
     errorFamily === "provider_quota"
@@ -9511,8 +9515,15 @@ export function heartbeatService(
       | typeof WORKSPACE_VALIDATION_RECOVERY_CAUSE
       | typeof CONFIGURATION_INCOMPLETE_RECOVERY_CAUSE
       | typeof EXECUTION_REVIEW_PARTICIPANT_RECOVERY_CAUSE
+      | typeof CLAUDE_AUTH_REQUIRED_RECOVERY_CAUSE
       | undefined;
   } {
+    if (input.runRow.errorCode === CLAUDE_AUTH_REQUIRED_ERROR_CODE) {
+      return {
+        notice: buildImmediateExecutionPathRecoveryNoticeSeed({ status: input.issueStatus }),
+        recoveryCause: CLAUDE_AUTH_REQUIRED_RECOVERY_CAUSE,
+      };
+    }
     if (noticeKind === "workspace_validation") {
       return { notice: buildWorkspaceValidationRecoveryNoticeSeed(), recoveryCause: WORKSPACE_VALIDATION_RECOVERY_CAUSE };
     }
@@ -24750,6 +24761,7 @@ export function heartbeatService(
             }
           } else if (
             outcome === "failed" &&
+            runErrorCode !== CLAUDE_AUTH_REQUIRED_ERROR_CODE &&
             readTransientRecoveryContractFromRun(livenessRun)
           ) {
             await scheduleBoundedRetryForRun(livenessRun, agent);
