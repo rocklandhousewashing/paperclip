@@ -474,8 +474,8 @@ function resolveStrandedRecoveryCause(
   latestRun: LatestIssueRun,
   explicitCause?: StrandedRecoveryCause,
 ): StrandedRecoveryCause {
-  if (explicitCause) return explicitCause;
   if (latestRun?.errorCode === "claude_auth_required") return "claude_auth_required";
+  if (explicitCause) return explicitCause;
   if (isProviderQuotaRecovery(latestRun)) return "provider_quota";
   if (latestRun?.errorCode === "process_lost") return "process_lost";
   if (latestRun?.errorCode === "codex_output_inactivity_monitor") {
@@ -4484,10 +4484,36 @@ export function recoveryService(
               participantAgentId,
             )
           : null;
+      const assigneeLatestRunForRecovery =
+        issue.status !== "in_review"
+          ? await getLatestIssueRunForAgent(
+              issue.companyId,
+              issue.id,
+              agentId,
+            )
+          : null;
       const executionRecoverySource =
         issue.status === "in_review"
           ? participantLatestRunForRecovery
-          : latestRun;
+          : assigneeLatestRunForRecovery;
+      if (
+        executionRecoverySource?.errorCode === "claude_auth_required" &&
+        isUnsuccessfulTerminalIssueRun(executionRecoverySource)
+      ) {
+        const updated = await escalateStrandedAssignedIssue({
+          issue,
+          previousStatus: issue.status as StrandedPreviousStatus,
+          latestRun: executionRecoverySource,
+          recoveryCause: "claude_auth_required",
+        });
+        if (updated) {
+          result.escalated += 1;
+          result.issueIds.push(issue.id);
+        } else {
+          result.skipped += 1;
+        }
+        continue;
+      }
       if (
         executionRecoverySource?.agentId === agentId &&
         (

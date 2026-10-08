@@ -4042,7 +4042,10 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
       errorMessage: "Authentication required",
       provider: "anthropic",
       model: "claude",
-      resultJson: { errorFamily: "transient_upstream" },
+      resultJson: {
+        errorFamily: "transient_upstream",
+        stopReason: "max_turns_exhausted",
+      },
     });
 
     const { agentId, runId, issueId } = await seedQueuedIssueRunFixture();
@@ -4100,6 +4103,54 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
         evidence: expect.objectContaining({ latestRunId: runId }),
       }),
     ]);
+  });
+
+  it("blocks a preexisting execution-review participant authentication failure after restart", async () => {
+    const { companyId, agentId, runId, wakeupRequestId, issueId } =
+      await seedInReviewParticipantRunFixture();
+    const finishedAt = new Date("2026-03-19T00:05:00.000Z");
+    await db
+      .update(heartbeatRuns)
+      .set({
+        status: "failed",
+        errorCode: "claude_auth_required",
+        error: "Authentication required",
+        startedAt: new Date("2026-03-19T00:00:00.000Z"),
+        finishedAt,
+        updatedAt: finishedAt,
+      })
+      .where(eq(heartbeatRuns.id, runId));
+    await db
+      .update(agentWakeupRequests)
+      .set({ status: "completed", finishedAt, updatedAt: finishedAt })
+      .where(eq(agentWakeupRequests.id, wakeupRequestId));
+
+    const result = await heartbeatService(db).reconcileStrandedAssignedIssues();
+    expect(result.reviewParticipantRequeued).toBe(0);
+    expect(result.escalated).toBe(1);
+    expect(result.issueIds).toContain(issueId);
+    expect(
+      await db.select().from(issues).where(eq(issues.id, issueId)).then((rows) => rows[0]),
+    ).toMatchObject({ status: "blocked" });
+    expect(
+      await db
+        .select()
+        .from(issueRecoveryActions)
+        .where(eq(issueRecoveryActions.sourceIssueId, issueId)),
+    ).toEqual([
+      expect.objectContaining({
+        companyId,
+        previousOwnerAgentId: agentId,
+        sourceIssueId: issueId,
+        cause: "claude_auth_required",
+        ownerType: "board",
+        ownerAgentId: null,
+        evidence: expect.objectContaining({ latestRunId: runId }),
+      }),
+    ]);
+    expect(
+      await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.retryOfRunId, runId)),
+    ).toEqual([]);
   });
 
   it("schedules bounded retries for failed accepted interaction continuation wakes", async () => {
@@ -4288,6 +4339,83 @@ describeEmbeddedPostgres("heartbeat orphaned process recovery", () => {
       },
     });
     mockAdapterExecute.mockClear();
+  });
+
+  it("blocks a failed accepted-interaction continuation on Claude authentication after restart", async () => {
+    const { companyId, agentId, runId, wakeupRequestId, issueId } =
+      await seedQueuedIssueRunFixture();
+    const interactionId = randomUUID();
+    const resolvedAt = new Date("2026-03-19T00:00:00.000Z");
+    const finishedAt = new Date("2026-03-19T00:05:00.000Z");
+    await db.insert(issueThreadInteractions).values({
+      id: interactionId,
+      companyId,
+      issueId,
+      kind: "request_confirmation",
+      status: "accepted",
+      continuationPolicy: "wake_assignee_on_accept",
+      createdByAgentId: agentId,
+      resolvedByUserId: "responsible-user",
+      resolvedAt,
+      payload: {
+        version: 1,
+        prompt: "Approve the plan?",
+        target: {
+          type: "issue_document",
+          issueId,
+          key: "plan",
+          revisionId: randomUUID(),
+        },
+      },
+      result: { version: 1, outcome: "accepted" },
+    });
+    await db
+      .update(heartbeatRuns)
+      .set({
+        status: "failed",
+        errorCode: "claude_auth_required",
+        error: "Authentication required",
+        contextSnapshot: {
+          issueId,
+          taskId: issueId,
+          wakeReason: "issue_commented",
+          mutation: "interaction",
+          interactionId,
+          interactionKind: "request_confirmation",
+          interactionStatus: "accepted",
+        },
+        startedAt: resolvedAt,
+        finishedAt,
+        updatedAt: finishedAt,
+      })
+      .where(eq(heartbeatRuns.id, runId));
+    await db
+      .update(agentWakeupRequests)
+      .set({ status: "completed", finishedAt, updatedAt: finishedAt })
+      .where(eq(agentWakeupRequests.id, wakeupRequestId));
+    await db.update(issues).set({ status: "in_progress" }).where(eq(issues.id, issueId));
+
+    const result = await heartbeatService(db).reconcileStrandedAssignedIssues();
+    expect(result.continuationRequeued).toBe(0);
+    expect(result.escalated).toBe(1);
+    expect(
+      await db.select().from(issues).where(eq(issues.id, issueId)).then((rows) => rows[0]),
+    ).toMatchObject({ status: "blocked" });
+    expect(
+      await db
+        .select()
+        .from(issueRecoveryActions)
+        .where(eq(issueRecoveryActions.sourceIssueId, issueId)),
+    ).toEqual([
+      expect.objectContaining({
+        cause: "claude_auth_required",
+        ownerType: "board",
+        evidence: expect.objectContaining({ latestRunId: runId }),
+      }),
+    ]);
+    expect(
+      await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.retryOfRunId, runId)),
+    ).toEqual([]);
   });
 
   it("schedules an infra retry for a setup failure caused by a transient sandbox provider worker restart", async () => {

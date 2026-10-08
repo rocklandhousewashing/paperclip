@@ -24737,7 +24737,11 @@ export function heartbeatService(
               `[paperclip] Failed to resolve run presentation: ${err instanceof Error ? err.message : String(err)}\n`,
             );
           }
-          if (outcome === "failed" && isMaxTurnExhaustionRun(livenessRun)) {
+          if (
+            outcome === "failed" &&
+            runErrorCode !== CLAUDE_AUTH_REQUIRED_ERROR_CODE &&
+            isMaxTurnExhaustionRun(livenessRun)
+          ) {
             const policy = parseMaxTurnContinuationPolicy(agent);
             if (policy.enabled && policy.maxAttempts > 0) {
               await scheduleBoundedRetryForRun(livenessRun, agent, {
