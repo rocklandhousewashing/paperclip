@@ -17,21 +17,34 @@ export async function readVerifiedLocalAiCredential(provider: AiProvider, loginH
       // Never change process.env or fall back to the server account when an
       // authenticated user's isolated login is missing or invalid.
       let token: string | null = null;
+      let credential: string | null = null;
       if (loginHome) {
         for (const name of [".credentials.json", "credentials.json"]) {
           const raw = await readLocalAiCredentialFile(path.join(loginHome, name)).catch(() => null);
           if (!raw) continue;
           let parsed;
           try { parsed = JSON.parse(raw); } catch { continue; }
-          const value = parsed?.claudeAiOauth?.accessToken;
-          if (typeof value === "string" && value.length) { token = value; break; }
+          const oauth = parsed?.claudeAiOauth;
+          const value = oauth?.accessToken;
+          // Managed executions need the refresh-capable bundle. Saving only
+          // the access token makes every isolated subscription expire after
+          // the CLI's short access-token lifetime.
+          if (
+            typeof value === "string" && value.length &&
+            typeof oauth?.refreshToken === "string" && oauth.refreshToken.length &&
+            typeof oauth?.expiresAt === "number" && Number.isFinite(oauth.expiresAt)
+          ) {
+            token = value;
+            credential = raw;
+            break;
+          }
         }
       } else {
         token = await readClaudeToken({ allowKeychain: true });
       }
       if (!token) throw new Error("Missing login");
       await fetchClaudeQuota(token);
-      return token;
+      return credential ?? token;
     }
     if (provider === "openai") {
       const auth = await readCodexAuthInfo(loginHome);

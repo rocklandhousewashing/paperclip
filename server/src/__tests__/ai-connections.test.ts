@@ -295,6 +295,25 @@ describe("managed AI connections", () => {
       await Promise.all([first.cleanup(), second.cleanup()]);
     }
   });
+  it("materializes and atomically retains the freshest Claude refresh bundle", async () => {
+    const userId = "claude-refresh-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const auth = (marker: string, expiresAt: number) => JSON.stringify({ claudeAiOauth: { accessToken: `access-${marker}`, refreshToken: `refresh-${marker}`, expiresAt, scopes: ["user:inference"] } });
+    await service.save(companyId, userId, { provider: "anthropic", method: "subscription", ownership: "personal", name: "Claude refresh fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, auth("start", 100));
+    const runInput = { ...input, adapterType: "claude_local", responsibleUserId: userId, binding: { provider: "anthropic", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    const older = await prepareManagedAiRuntime(db, runInput);
+    const newer = await prepareManagedAiRuntime(db, runInput);
+    expect(older.config.env.CLAUDE_CODE_OAUTH_TOKEN).toBe("");
+    const olderFile = path.join(String(older.config.env.CLAUDE_CONFIG_DIR), ".credentials.json");
+    const newerFile = path.join(String(newer.config.env.CLAUDE_CONFIG_DIR), ".credentials.json");
+    expect(await readFile(olderFile, "utf8")).toBe(auth("start", 100));
+    await writeFile(olderFile, auth("older", 200));
+    await writeFile(newerFile, auth("newer", 300));
+    await newer.cleanup();
+    await older.cleanup();
+    const selected = await service.select({ ...runInput, userId });
+    expect(await service.credential(selected)).toBe(auth("newer", 300));
+  });
   it("runs a same-agent OpenAI subscription child alongside a still-open parent", async () => {
     const userId = "subscription-contention-user";
     await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });

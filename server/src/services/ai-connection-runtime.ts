@@ -208,9 +208,6 @@ export async function prepareManagedAiRuntime(
     runnerProvider: input.config.provider,
     acpxAgent: input.config.acpxAgent,
   });
-  const subscriptionFile =
-    selection.attribution.method === "subscription" &&
-    input.binding.provider !== "anthropic";
   let home: string | undefined;
   try {
     const selectedGrantId = selection.grant.id;
@@ -226,6 +223,9 @@ export async function prepareManagedAiRuntime(
         "The selected default changed. Retry this execution.",
       );
     const value = await service.credential(selection);
+    const subscriptionFile =
+      selection.attribution.method === "subscription" &&
+      (input.binding.provider !== "anthropic" || claudeCredentialExpiry(value) !== null);
     home = await mkdtemp(
       path.join(
         os.tmpdir(),
@@ -248,7 +248,10 @@ export async function prepareManagedAiRuntime(
       AI_CONNECTION_CAPABILITIES[input.binding.provider].methods[
         selection.attribution.method
       ]!;
-    const authFile = path.join(providerHome, "auth.json");
+    const authFile = path.join(
+      providerHome,
+      input.binding.provider === "anthropic" ? ".credentials.json" : "auth.json",
+    );
     if (input.binding.provider === "openai")
       await writeFile(
         path.join(providerHome, "config.toml"),
@@ -331,11 +334,15 @@ export async function prepareManagedAiRuntime(
                 ).credential({ ...selection, grant });
                 const destination = path.join(
                   providerHome,
-                  "current-auth.json",
+                  input.binding.provider === "anthropic"
+                    ? "current-credentials.json"
+                    : "current-auth.json",
                 );
                 await writeFile(destination, current, { mode: 0o600 });
                 const decision =
-                  input.binding.provider === "openai"
+                  input.binding.provider === "anthropic"
+                    ? await decideClaudeCredentialMerge(authFile, destination)
+                    : input.binding.provider === "openai"
                     ? await decideCodexAuthMerge(authFile, destination, {
                         errorLabel: "AI account refresh",
                       })
@@ -363,4 +370,25 @@ export async function prepareManagedAiRuntime(
     if (home) await rm(home, { recursive: true, force: true });
     throw error;
   }
+}
+
+function claudeCredentialExpiry(raw: string): number | null {
+  try {
+    const value = JSON.parse(raw)?.claudeAiOauth?.expiresAt;
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Return the same write-back decision code used by the provider merge helpers. */
+function decideClaudeCredentialMerge(candidatePath: string, currentPath: string): Promise<number> {
+  return Promise.all([readFile(candidatePath, "utf8"), readFile(currentPath, "utf8")])
+    .then(([candidate, current]) => {
+      const candidateExpiry = claudeCredentialExpiry(candidate);
+      const currentExpiry = claudeCredentialExpiry(current);
+      return candidateExpiry !== null && currentExpiry !== null && candidateExpiry > currentExpiry
+        ? 10
+        : 0;
+    });
 }

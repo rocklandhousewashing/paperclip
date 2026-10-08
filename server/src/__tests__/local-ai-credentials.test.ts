@@ -8,8 +8,9 @@ vi.mock("node:fs/promises", () => ({ default: { readFile: mocks.readFile } }));
 afterEach(() => { vi.resetAllMocks(); vi.unstubAllGlobals(); });
 describe("explicit local subscription import", () => {
   it("verifies Claude only from the selected isolated home, never the host account", async () => {
-    mocks.credentialFile.mockResolvedValue(JSON.stringify({ claudeAiOauth: { accessToken: "isolated-claude" } }));
-    await expect(readVerifiedLocalAiCredential("anthropic", "/isolated/claude")).resolves.toBe("isolated-claude");
+    const credential = JSON.stringify({ claudeAiOauth: { accessToken: "isolated-claude", refreshToken: "refresh", expiresAt: 42 } });
+    mocks.credentialFile.mockResolvedValue(credential);
+    await expect(readVerifiedLocalAiCredential("anthropic", "/isolated/claude")).resolves.toBe(credential);
     expect(mocks.credentialFile).toHaveBeenCalledWith("/isolated/claude/.credentials.json");
     expect(mocks.claudeQuota).toHaveBeenCalledWith("isolated-claude");
     expect(mocks.claude).not.toHaveBeenCalled();
@@ -24,10 +25,16 @@ describe("explicit local subscription import", () => {
     expect(mocks.claudeQuota).not.toHaveBeenCalled();
   });
   it("tries the alternate Claude filename after malformed JSON", async () => {
-    mocks.credentialFile.mockResolvedValueOnce("malformed").mockResolvedValueOnce(JSON.stringify({ claudeAiOauth: { accessToken: "alternate-token" } }));
-    await expect(readVerifiedLocalAiCredential("anthropic", "/isolated/claude")).resolves.toBe("alternate-token");
+    const credential = JSON.stringify({ claudeAiOauth: { accessToken: "alternate-token", refreshToken: "refresh", expiresAt: 42 } });
+    mocks.credentialFile.mockResolvedValueOnce("malformed").mockResolvedValueOnce(credential);
+    await expect(readVerifiedLocalAiCredential("anthropic", "/isolated/claude")).resolves.toBe(credential);
     expect(mocks.credentialFile).toHaveBeenLastCalledWith("/isolated/claude/credentials.json");
     expect(mocks.claude).not.toHaveBeenCalled();
+  });
+  it("rejects an isolated Claude access token without refresh material", async () => {
+    mocks.credentialFile.mockResolvedValue(JSON.stringify({ claudeAiOauth: { accessToken: "short-lived" } }));
+    await expect(readVerifiedLocalAiCredential("anthropic", "/isolated/claude")).rejects.toThrow("sign-in command shown");
+    expect(mocks.claudeQuota).not.toHaveBeenCalled();
   });
   it("verifies Claude's local credential, including explicit Keychain access", async () => {
     mocks.claude.mockResolvedValue("fixture-claude");
