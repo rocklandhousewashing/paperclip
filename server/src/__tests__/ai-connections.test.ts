@@ -314,6 +314,37 @@ describe("managed AI connections", () => {
     const selected = await service.select({ ...runInput, userId });
     expect(await service.credential(selected)).toBe(auth("newer", 300));
   });
+  it("rejects a newer-looking incomplete Claude credential write-back", async () => {
+    const userId = "claude-incomplete-refresh-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const initial = JSON.stringify({ claudeAiOauth: { accessToken: "access", refreshToken: "refresh", expiresAt: 100 } });
+    await service.save(companyId, userId, { provider: "anthropic", method: "subscription", ownership: "personal", name: "Claude incomplete fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, initial);
+    const runInput = { ...input, adapterType: "claude_local", responsibleUserId: userId, binding: { provider: "anthropic", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    const run = await prepareManagedAiRuntime(db, runInput);
+    await writeFile(path.join(String(run.config.env.CLAUDE_CONFIG_DIR), ".credentials.json"), JSON.stringify({ claudeAiOauth: { accessToken: "", expiresAt: 999 } }));
+    await run.cleanup();
+    expect(await service.credential(await service.select({ ...runInput, userId }))).toBe(initial);
+  });
+  it("does not let an older Claude run overwrite an explicit reconnect", async () => {
+    const userId = "claude-reconnect-generation-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const auth = (marker: string, expiresAt: number) => JSON.stringify({ claudeAiOauth: { accessToken: `access-${marker}`, refreshToken: `refresh-${marker}`, expiresAt } });
+    const intent = { provider: "anthropic" as const, method: "subscription" as const, ownership: "personal" as const, name: "Claude reconnect fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] };
+    const saved = await service.save(companyId, userId, intent, auth("initial", 100));
+    const runInput = { ...input, adapterType: "claude_local", responsibleUserId: userId, binding: { provider: "anthropic", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    const run = await prepareManagedAiRuntime(db, runInput);
+    await service.save(companyId, userId, { ...intent, connectionId: saved.connectionId }, auth("reconnected", 200));
+    await writeFile(path.join(String(run.config.env.CLAUDE_CONFIG_DIR), ".credentials.json"), auth("old-run", 999));
+    await run.cleanup();
+    expect(await service.credential(await service.select({ ...runInput, userId }))).toBe(auth("reconnected", 200));
+  });
+  it("rejects malformed JSON-shaped Claude subscription credentials instead of exporting them", async () => {
+    const userId = "claude-malformed-bundle-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    await service.save(companyId, userId, { provider: "anthropic", method: "subscription", ownership: "personal", name: "Claude malformed fixture", loginSessionId: "fixture", allAgents: true, agentIds: [] }, JSON.stringify({ claudeAiOauth: { accessToken: "access-only" } }));
+    const runInput = { ...input, adapterType: "claude_local", responsibleUserId: userId, binding: { provider: "anthropic", method: "subscription", mode: "responsible_user" } as const, config: { model: "same-model" } };
+    await expect(prepareManagedAiRuntime(db, runInput)).rejects.toMatchObject({ details: { code: "ai_connection_credential_invalid" } });
+  });
   it("runs a same-agent OpenAI subscription child alongside a still-open parent", async () => {
     const userId = "subscription-contention-user";
     await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
@@ -338,7 +369,7 @@ describe("managed AI connections", () => {
       await Promise.all([parent.cleanup(), child.cleanup()]);
     }
   });
-  it("persists the freshest refreshed credential to its original grant across a same-account reconnect", async () => {
+  it("preserves an explicit reconnect over a refresh from an older run", async () => {
     const auth = (marker: string, hour: number) => JSON.stringify({ tokens: { account_id: "fixture-account", id_token: `id-${marker}`, access_token: `access-${marker}`, refresh_token: `refresh-${marker}` }, last_refresh: `2026-09-10T${hour}:00:00Z` });
     const intent = { provider: "openai" as const, method: "subscription" as const, name: "Refresh test", ownership: "personal" as const, agentIds: [], allAgents: true, loginSessionId: "fixture" };
     const saved = await service.save(companyId, "alice", intent, auth("first", 10));
@@ -355,8 +386,9 @@ describe("managed AI connections", () => {
     await service.save(companyId, "alice", { ...intent, connectionId: saved.connectionId }, auth("reconnect", 12));
     await writeFile(path.join(String(second.config.env.CODEX_HOME), "auth.json"), auth("later-refresh", 13));
     await second.cleanup();
-    // The newer refresh persists to the grant it started from.
-    expect(await service.credential(await service.select({ ...runInput, userId: "alice" }))).toBe(auth("later-refresh", 13));
+    // Reconnect establishes a new credential generation, so the older run
+    // cannot replace it based only on its provider freshness field.
+    expect(await service.credential(await service.select({ ...runInput, userId: "alice" }))).toBe(auth("reconnect", 12));
   });
   it("resolves two concurrent OpenAI subscription write-backs by freshness, not by order", async () => {
     const userId = "concurrent-freshness-user";

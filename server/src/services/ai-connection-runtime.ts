@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
-import { type Db, companySecrets, connectionGrants } from "@paperclipai/db";
+import { type Db, companySecrets, connectionGrants, toolConnections } from "@paperclipai/db";
 import {
   AI_CONNECTION_CAPABILITIES,
   type AiConnectionBinding,
@@ -15,6 +15,7 @@ import { decideCodexAuthMerge } from "@paperclipai/adapter-codex-local/server";
 import type { AdapterExecutionTarget } from "@paperclipai/adapter-utils/execution-target";
 import { runAdapterExecutionTargetProcess } from "@paperclipai/adapter-utils/execution-target";
 import { decideGrokAuthMerge } from "@paperclipai/adapter-grok-local/server";
+import { readLocalAiCredentialFile } from "./local-ai-credential-file.js";
 
 export function isAiConnectionBusy(error: unknown): error is HttpError {
   return error instanceof HttpError && error.status === 422 &&
@@ -223,6 +224,16 @@ export async function prepareManagedAiRuntime(
         "The selected default changed. Retry this execution.",
       );
     const value = await service.credential(selection);
+    const connectionEpoch = selection.connection.updatedAt.getTime();
+    if (
+      selection.attribution.method === "subscription" &&
+      input.binding.provider === "anthropic" &&
+      /^[\s]*[\[{]/.test(value) &&
+      claudeCredentialExpiry(value) === null
+    )
+      throw unprocessable("The Claude subscription credential bundle is invalid", {
+        code: "ai_connection_credential_invalid",
+      });
     const subscriptionFile =
       selection.attribution.method === "subscription" &&
       (input.binding.provider !== "anthropic" || claudeCredentialExpiry(value) !== null);
@@ -293,7 +304,7 @@ export async function prepareManagedAiRuntime(
       cleanup: async () => {
         try {
           if (subscriptionFile) {
-            const refreshed = await readFile(authFile, "utf8");
+            const refreshed = await readLocalAiCredentialFile(authFile);
             if (refreshed !== value)
               await db.transaction(async (tx) => {
                 const [grant] = await tx
@@ -310,6 +321,20 @@ export async function prepareManagedAiRuntime(
                 // active copies, the merge decision below keeps the
                 // credential with the newest provider freshness field.
                 if (!grant || grant.status !== "active") return;
+                const [connection] = await tx
+                  .select({ updatedAt: toolConnections.updatedAt })
+                  .from(toolConnections)
+                  .where(
+                    and(
+                      eq(toolConnections.id, selection.connection.id),
+                      eq(toolConnections.companyId, input.companyId),
+                    ),
+                  )
+                  .for("update");
+                // Reconnect is an explicit credential generation change.
+                // A run launched before it must never write its old lineage
+                // over the newly connected account.
+                if (!connection || connection.updatedAt.getTime() !== connectionEpoch) return;
                 const ref = grant.credentialSecretRefs.find(
                   (r) => r.configPath === "ai.credential",
                 );
@@ -332,21 +357,14 @@ export async function prepareManagedAiRuntime(
                 const current = await aiConnectionService(
                   tx as unknown as Db,
                 ).credential({ ...selection, grant });
-                const destination = path.join(
-                  providerHome,
-                  input.binding.provider === "anthropic"
-                    ? "current-credentials.json"
-                    : "current-auth.json",
-                );
-                await writeFile(destination, current, { mode: 0o600 });
                 const decision =
                   input.binding.provider === "anthropic"
-                    ? await decideClaudeCredentialMerge(authFile, destination)
+                    ? decideClaudeCredentialMerge(refreshed, current)
                     : input.binding.provider === "openai"
-                    ? await decideCodexAuthMerge(authFile, destination, {
+                    ? await decideCodexAuthMerge(authFile, await materializeCurrentCredential(providerHome, current, "current-auth.json"), {
                         errorLabel: "AI account refresh",
                       })
-                    : await decideGrokAuthMerge(authFile, destination, {
+                    : await decideGrokAuthMerge(authFile, await materializeCurrentCredential(providerHome, current, "current-auth.json"), {
                         errorLabel: "AI account refresh",
                       });
                 if (decision !== 10) return;
@@ -372,23 +390,34 @@ export async function prepareManagedAiRuntime(
   }
 }
 
+async function materializeCurrentCredential(
+  providerHome: string,
+  current: string,
+  filename: string,
+): Promise<string> {
+  const destination = path.join(providerHome, filename);
+  await writeFile(destination, current, { mode: 0o600 });
+  return destination;
+}
+
 function claudeCredentialExpiry(raw: string): number | null {
   try {
-    const value = JSON.parse(raw)?.claudeAiOauth?.expiresAt;
-    return typeof value === "number" && Number.isFinite(value) ? value : null;
+    const oauth = JSON.parse(raw)?.claudeAiOauth;
+    return typeof oauth?.accessToken === "string" && oauth.accessToken.length > 0 &&
+        typeof oauth?.refreshToken === "string" && oauth.refreshToken.length > 0 &&
+        typeof oauth?.expiresAt === "number" && Number.isFinite(oauth.expiresAt)
+      ? oauth.expiresAt
+      : null;
   } catch {
     return null;
   }
 }
 
 /** Return the same write-back decision code used by the provider merge helpers. */
-function decideClaudeCredentialMerge(candidatePath: string, currentPath: string): Promise<number> {
-  return Promise.all([readFile(candidatePath, "utf8"), readFile(currentPath, "utf8")])
-    .then(([candidate, current]) => {
-      const candidateExpiry = claudeCredentialExpiry(candidate);
-      const currentExpiry = claudeCredentialExpiry(current);
-      return candidateExpiry !== null && currentExpiry !== null && candidateExpiry > currentExpiry
-        ? 10
-        : 0;
-    });
+function decideClaudeCredentialMerge(candidate: string, current: string): number {
+  const candidateExpiry = claudeCredentialExpiry(candidate);
+  const currentExpiry = claudeCredentialExpiry(current);
+  return candidateExpiry !== null && currentExpiry !== null && candidateExpiry > currentExpiry
+    ? 10
+    : 0;
 }
