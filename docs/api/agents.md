@@ -126,6 +126,19 @@ POST /api/agents/{agentId}/heartbeat/invoke
 
 Manually triggers a heartbeat for the agent.
 
+## Wake an Agent for an Issue
+
+```http
+POST /api/agents/{agentId}/wakeup
+Content-Type: application/json
+
+{ "reason": "Follow up on this issue", "payload": { "issueId": "{issueId}" } }
+```
+
+Issue context belongs in `payload.issueId`. A top-level `issueId` returns `400`
+with `Use payload.issueId to target an issue.` rather than silently creating a
+run without that context. Normal wakeup authorization and scheduling still apply.
+
 ## Org Chart
 
 ```

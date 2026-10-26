@@ -221,6 +221,8 @@ export const wakeAgentSchema = z.object({
   reason: z.string().optional().nullable(),
   /** Select an exact failed run; its chat request and actor are server-derived. */
   failedRunId: z.string().uuid().optional(),
+  // A top-level issueId would otherwise be silently stripped by Zod.
+  issueId: z.never({ error: "Use payload.issueId to target an issue." }).optional(),
   payload: z.record(z.string(), z.unknown()).optional().nullable(),
   idempotencyKey: z.string().optional().nullable(),
   forceFreshSession: z.preprocess(

@@ -893,6 +893,19 @@ describe.sequential("agent permission routes", () => {
     expect(res.status).toBe(403);
   });
 
+  it("rejects a top-level wakeup issueId before dispatch", async () => {
+    const app = createApp({ type: "board", userId: "operator", source: "session", companyIds: [companyId] });
+    const res = await requestApp(app, (baseUrl) => request(baseUrl)
+      .post(`/api/agents/${agentId}/wakeup`)
+      .send({ issueId: "issue-1", reason: "manual" }));
+
+    expect(res.status).toBe(400);
+    expect(res.body.details).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: ["issueId"], message: "Use payload.issueId to target an issue." }),
+    ]));
+    expect(mockAgentService.getById).not.toHaveBeenCalled();
+  });
+
   it("blocks agent-authenticated self-updates that set host-executed workspace commands", async () => {
     const app = await createApp({
       type: "agent",
