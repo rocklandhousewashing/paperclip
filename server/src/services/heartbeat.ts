@@ -84,7 +84,6 @@ import {
   PROVIDER_QUOTA_MONITOR_SERVICE_NAME,
   envBindingSchema,
   isEnvironmentDriverSupportedForAdapter,
-  isToolConnectionAttentionHealth,
   type BillingType,
   type ChatProvider,
   type CostStatus,
@@ -4535,26 +4534,21 @@ export async function buildPaperclipRuntimeMcpServers(input: {
       permittedConnectionIds.has(connection.id) &&
       connection.status === "active" &&
       connection.enabled &&
-      ((Boolean(runIdentity?.activeIdentityContextId) &&
-        (connection.config?.sourceTemplateKey === "github" ||
-          connection.transportConfig?.sourceTemplateKey === "github")) ||
-        !isToolConnectionAttentionHealth(connection.healthStatus)) &&
       (connection.transport === "mcp_remote" ||
         connection.transport === "local_stdio"),
   );
-  const unhealthyConnections = resolvedInstalledConnections.filter(
+  const unavailableConnections = resolvedInstalledConnections.filter(
     (connection) =>
       permittedConnectionIds.has(connection.id) &&
       (connection.transport === "mcp_remote" ||
         connection.transport === "local_stdio") &&
       (!connection.enabled ||
-        connection.status !== "active" ||
-        isToolConnectionAttentionHealth(connection.healthStatus)),
+        connection.status !== "active"),
   );
-  if (unhealthyConnections.length && input.onUnavailableAssignedConnections) {
+  if (unavailableConnections.length && input.onUnavailableAssignedConnections) {
     try {
       await input.onUnavailableAssignedConnections(
-        unhealthyConnections
+        unavailableConnections
           .map(({ id, name }) => ({ id, name }))
           .sort((a, b) => a.name.localeCompare(b.name)),
       );
@@ -4952,7 +4946,6 @@ export async function createManagedMcpRunConfig(input: {
       connectionId: toolConnectionInstalls.connectionId,
       enabled: toolConnections.enabled,
       status: toolConnections.status,
-      healthStatus: toolConnections.healthStatus,
       config: toolConnections.config,
       transportConfig: toolConnections.transportConfig,
     })
@@ -4997,10 +4990,7 @@ export async function createManagedMcpRunConfig(input: {
           .filter(
             (install) =>
               install.enabled &&
-              install.status === "active" &&
-              !["degraded", "failed", "error", "missing_secret"].includes(
-                install.healthStatus,
-              ),
+              install.status === "active",
           )
           .map((install) => ({
             id: install.connectionId,

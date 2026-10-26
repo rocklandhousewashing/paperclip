@@ -65,7 +65,7 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
     await tempDb?.cleanup();
   });
 
-  it("provisions one aggregate gateway and omits unavailable access without blocking any runtime", async () => {
+  it("keeps the aggregate gateway assigned after call failure while honoring explicit disable", async () => {
     process.env.PAPERCLIP_API_URL = "https://paperclip.example.test";
     const [company] = await db.insert(companies).values({
       name: `Runtime MCP ${randomUUID()}`,
@@ -176,34 +176,38 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
     expect(await db.select().from(toolMcpGatewayTokens)).toHaveLength(2);
 
     await db.update(toolConnections)
-      .set({ healthStatus: "degraded", healthMessage: "fixture unavailable" })
+      .set({ healthStatus: "error", healthMessage: "fixture tool call timed out" })
       .where(eq(toolConnections.id, installedConnection!.id));
     const unavailableReports: Array<Array<{ id: string; name: string }>> = [];
-    await expect(
-      buildPaperclipRuntimeMcpServers({
-        db,
-        agent: agent!,
-        runId: randomUUID(),
-        expectedAssignmentDigest: first[0]!.connectionId.slice("assignment:".length),
-        onUnavailableAssignedConnections: (connections) => {
-          unavailableReports.push(connections);
-        },
-      }),
-    ).resolves.toEqual([]);
+    const afterFailure = await buildPaperclipRuntimeMcpServers({
+      db,
+      agent: agent!,
+      runId: randomUUID(),
+      expectedAssignmentDigest: first[0]!.connectionId.slice("assignment:".length),
+      onUnavailableAssignedConnections: (connections) => {
+        unavailableReports.push(connections);
+      },
+    });
+    expect(afterFailure).toHaveLength(1);
+    expect(afterFailure[0]!.connectionId).toBe(first[0]!.connectionId);
+    expect(unavailableReports).toEqual([]);
+    expect(await db.select().from(toolMcpGatewayTokens)).toHaveLength(3);
+
+    await db.update(toolConnections)
+      .set({ status: "disabled", enabled: false })
+      .where(eq(toolConnections.id, installedConnection!.id));
+    await expect(buildPaperclipRuntimeMcpServers({
+      db,
+      agent: agent!,
+      runId: randomUUID(),
+      onUnavailableAssignedConnections: (connections) => {
+        unavailableReports.push(connections);
+      },
+    })).resolves.toEqual([]);
     expect(unavailableReports).toEqual([[
       { id: installedConnection!.id, name: installedConnection!.name },
     ]]);
-    expect(await db.select().from(toolMcpGatewayTokens)).toHaveLength(2);
-    await expect(
-      createManagedMcpRunConfig({
-        db,
-        agent: agent!,
-        runId: randomUUID(),
-        config: {},
-        projectId: null,
-        issueId: null,
-      }),
-    ).resolves.toBeNull();
+    expect(await db.select().from(toolMcpGatewayTokens)).toHaveLength(3);
   });
 
   it("preserves exact permissions when an aggregate assignment exceeds the public 250-entry edit limit", async () => {
@@ -561,6 +565,10 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
       targetType: "agent",
       targetId: agent!.id,
     });
+
+    await db.update(toolConnections)
+      .set({ healthStatus: "error", healthMessage: "fixture tool call timed out" })
+      .where(eq(toolConnections.id, connections[0]!.id));
 
     const config = await createManagedMcpRunConfig({
       db,

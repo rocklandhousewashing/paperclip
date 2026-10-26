@@ -17,6 +17,7 @@ import { accessService } from "../services/access.js";
 import type { heartbeatService } from "../services/heartbeat.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { resolveGitHubOperationCredentials } from "../services/github-operation-credentials.js";
+import { mcpTextResult } from "../services/mcp-http.js";
 
 function bearer(req: Request) {
   const value = req.header("authorization") ?? "";
@@ -27,13 +28,6 @@ function runtimeClaims(req: Request) {
   const claims = verifyRuntimeToolsToken(bearer(req));
   if (!claims) throw unauthorized("Runtime tools token is missing, invalid, or expired");
   return claims;
-}
-
-function resultContent(value: unknown) {
-  return {
-    content: [{ type: "text", text: JSON.stringify(value) }],
-    structuredContent: value,
-  };
 }
 
 export { RUNTIME_CONNECTION_TOOL_DEFINITIONS } from "../services/connection-tool-definitions.js";
@@ -104,13 +98,13 @@ export function runtimeConnectionIntentRoutes(db: Db) {
       if (name === "connections_search") {
         const input = connectionsSearchInputSchema.parse(params.arguments ?? {});
         const result = await service.search(claims, input.query);
-        res.json({ jsonrpc: "2.0", id, result: resultContent(result) });
+        res.json({ jsonrpc: "2.0", id, result: mcpTextResult(result) });
         return;
       }
       if (name === "connection_request") {
         const input = connectionRequestInputSchema.parse(params.arguments ?? {});
         const result = await service.request(claims, input.service);
-        res.json({ jsonrpc: "2.0", id, result: resultContent(result) });
+        res.json({ jsonrpc: "2.0", id, result: mcpTextResult(result) });
         return;
       }
       res.status(404).json({

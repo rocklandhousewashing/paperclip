@@ -88,6 +88,7 @@ import { secretService } from "./secrets.js";
 import {
   initializeMcpHttpSession,
   mcpHttpRequestHeaders,
+  mcpStructuredContent,
   parseMcpHttpResponseBody,
 } from "./mcp-http.js";
 import {
@@ -648,6 +649,17 @@ function timeoutMs(value: number | undefined) {
   );
 }
 
+function remoteToolTimeoutMs(connection: typeof toolConnections.$inferSelect, requested: number | undefined) {
+  const configured = connection.transportConfig?.toolTimeoutMs ?? connection.config?.toolTimeoutMs;
+  // Preserve the existing caller override for unconfigured connections. Validate
+  // API writes separately, and bound legacy/imported config at execution too.
+  if (typeof configured !== "number" || !Number.isFinite(configured)) return timeoutMs(requested);
+  const budget = Math.max(1_000, Math.min(120_000, Math.floor(configured)));
+  return typeof requested === "number" && Number.isFinite(requested)
+    ? Math.min(budget, Math.max(1, Math.floor(requested)))
+    : budget;
+}
+
 function sessionTtlMs(value: number | undefined) {
   if (!Number.isFinite(value)) return DEFAULT_SESSION_TTL_MS;
   return Math.max(
@@ -1201,15 +1213,9 @@ export function createToolGatewayService(
           inArray(toolConnections.transport, ["mcp_remote", "local_stdio"]),
           eq(toolConnections.status, "active"),
           eq(toolConnections.enabled, true),
-          // A personal connection has no company-level credential to probe. A
-          // credential-less health sweep can therefore mark it as errored even
-          // while the responsible user's grant is valid. Keep its cached active
-          // catalog discoverable; execution resolves and validates that user's
-          // grant, and a successful call restores the shared health indicator.
-          or(
-            inArray(toolConnections.healthStatus, ["ok", "healthy"]),
-            eq(toolConnections.credentialPolicy, "per_user"),
-          ),
+          // Health reports the last attempt, not tool authorization. Retain the
+          // active catalog after a timeout so a later call can recover; execution
+          // still validates the connection, assignment, and credential grant.
           eq(toolApplications.companyId, companyId),
           inArray(toolApplications.type, ["mcp_http", "mcp_stdio"]),
           eq(toolApplications.status, "active"),
@@ -5723,7 +5729,7 @@ export function createToolGatewayService(
       content,
       data: {
         content: record.content,
-        structuredContent: record.structuredContent ?? null,
+        ...mcpStructuredContent(record.structuredContent),
         isError: record.isError === true,
         transport,
         spawnedLocalProcess,
@@ -5738,7 +5744,7 @@ export function createToolGatewayService(
     session: ToolGatewaySession,
     tool: ToolGatewayDescriptor,
     parameters: unknown,
-    ms: number,
+    requestedTimeoutMs: number | undefined,
     invocationId: string,
     callerHeaders?: ExecuteGatewayToolInput["callerHeaders"],
   ): Promise<RemoteHttpExecutionResult> {
@@ -5746,6 +5752,7 @@ export function createToolGatewayService(
       session,
       tool,
     );
+    const ms = remoteToolTimeoutMs(connection, requestedTimeoutMs);
     const grant = await resolveConnectionGrant(session, connection);
     const composioScopeRevision = `${grant.id}:${grant.status}:${grant.updatedAt.toISOString()}`;
     const composioChild = composioChildConfig(connection);
@@ -6977,7 +6984,7 @@ export function createToolGatewayService(
               args.session,
               args.tool,
               args.parameters,
-              executionTimeoutMs,
+              args.timeoutMs,
               args.invocationId,
             )
           : args.tool.providerType === "mcp_local_stdio"
@@ -10209,7 +10216,7 @@ export function createToolGatewayService(
                 session,
                 tool,
                 effectiveParameters,
-                executionTimeoutMs,
+                input.timeoutMs,
                 invocationId,
                 input.callerHeaders,
               )

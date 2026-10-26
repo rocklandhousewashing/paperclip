@@ -4,6 +4,7 @@ import { projectToolContext } from "../services/project-tool-context.js";
 import { callProjectTool, projectToolDefinitions } from "../services/project-tools.js";
 import { assertCompanyAccess } from "./authz.js";
 import { forbidden } from "../errors.js";
+import { mcpTextResult } from "../services/mcp-http.js";
 
 /** Mounted after actor middleware; connection-scoped tokens cannot authenticate here. */
 export function projectToolRoutes(db: Db) {
@@ -28,7 +29,7 @@ export function projectToolRoutes(db: Db) {
         companyId: context.run.companyId, issueId: context.issue.id, agentId: context.run.agentId,
         conversation: Boolean(context.issue.conversationAgentId),
       });
-      return send({ content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result });
+      return send(mcpTextResult(result));
     } catch (error) {
       return send({ isError: true, content: [{ type: "text", text: error instanceof Error ? error.message : "Project tool failed" }] });
     }

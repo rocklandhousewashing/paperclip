@@ -84,49 +84,46 @@ afterEach(async () => {
 });
 
 describe("buildNativeRuntimeContext", () => {
-  it.each(["disabled", "degraded"] as const)(
-    "omits an unavailable native MCP connection when it is %s without aborting runtime context creation",
-    async (unavailableState) => {
-      serviceMocks.exportFiles.mockResolvedValue({
-        entryFile: "AGENTS.md",
-        files: { "AGENTS.md": "Continue work without unavailable apps.\n" },
-      });
-      serviceMocks.getEffectiveProfilesForAgent.mockResolvedValue({
-        agentId: "agent-1",
-        profiles: [],
-        entries: [{ effect: "include", connectionId: "connection-1" }],
-        bindings: [],
-        allowedTools: [{ id: "tool-1", connectionId: "connection-1" }],
-        allowedToolNames: ["issues.read"],
-        installedConnections: [{
-          id: "connection-1",
-          transport: "mcp_remote",
-          enabled: unavailableState !== "disabled",
-          status: unavailableState === "disabled" ? "disabled" : "active",
-          healthStatus: unavailableState === "degraded" ? "degraded" : "healthy",
-        }],
-      });
+  it("omits an explicitly disabled native MCP connection without aborting runtime context creation", async () => {
+    serviceMocks.exportFiles.mockResolvedValue({
+      entryFile: "AGENTS.md",
+      files: { "AGENTS.md": "Continue work without unavailable apps.\n" },
+    });
+    serviceMocks.getEffectiveProfilesForAgent.mockResolvedValue({
+      agentId: "agent-1",
+      profiles: [],
+      entries: [{ effect: "include", connectionId: "connection-1" }],
+      bindings: [],
+      allowedTools: [{ id: "tool-1", connectionId: "connection-1" }],
+      allowedToolNames: ["issues.read"],
+      installedConnections: [{
+        id: "connection-1",
+        transport: "mcp_remote",
+        enabled: false,
+        status: "disabled",
+        healthStatus: "healthy",
+      }],
+    });
 
-      const context = await buildNativeRuntimeContext({
-        db: {} as Db,
-        agent: {
-          id: "agent-1",
-          companyId: "company-1",
-          name: "Reviewer",
-          adapterType: "paperclip_runner",
-          adapterConfig: {},
-        },
-        runId: "run-1",
-        runtimeConfig: {},
-        runtimeSkillEntries: [],
-      });
+    const context = await buildNativeRuntimeContext({
+      db: {} as Db,
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "Reviewer",
+        adapterType: "paperclip_runner",
+        adapterConfig: {},
+      },
+      runId: "run-1",
+      runtimeConfig: {},
+      runtimeSkillEntries: [],
+    });
 
-      expect(context.mcp.bindingId).toBeNull();
-      expect(context.mcp.assignmentSetId).toMatch(/^sha256:[a-f0-9]{64}$/);
-    },
-  );
+    expect(context.mcp.bindingId).toBeNull();
+    expect(context.mcp.assignmentSetId).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
 
-  it("keeps healthy native MCP connections when another assigned connection is unavailable", async () => {
+  it("keeps assigned tools in a new run after connection health records a failed call", async () => {
     serviceMocks.exportFiles.mockResolvedValue({
       entryFile: "AGENTS.md",
       files: { "AGENTS.md": "Continue work with the apps that are available.\n" },
@@ -135,22 +132,22 @@ describe("buildNativeRuntimeContext", () => {
       agentId: "agent-1",
       profiles: [],
       entries: [
-        { effect: "include", connectionId: "connection-expired" },
+        { effect: "include", connectionId: "connection-failed" },
         { effect: "include", connectionId: "connection-healthy" },
       ],
       bindings: [],
       allowedTools: [
-        { id: "tool-expired", connectionId: "connection-expired" },
+        { id: "tool-failed", connectionId: "connection-failed" },
         { id: "tool-healthy", connectionId: "connection-healthy" },
       ],
-      allowedToolNames: ["expired.read", "healthy.read"],
+      allowedToolNames: ["failed.read", "healthy.read"],
       installedConnections: [
         {
-          id: "connection-expired",
+          id: "connection-failed",
           transport: "mcp_remote",
           enabled: true,
           status: "active",
-          healthStatus: "degraded",
+          healthStatus: "error",
         },
         {
           id: "connection-healthy",
@@ -176,8 +173,17 @@ describe("buildNativeRuntimeContext", () => {
       runtimeSkillEntries: [],
     });
 
+    const expected = createHash("sha256").update(JSON.stringify({
+      version: 1,
+      agentId: "agent-1",
+      connections: ["connection-failed", "connection-healthy"],
+      tools: ["tool-failed", "tool-healthy"],
+    })).digest("hex");
     expect(context.mcp.bindingId).toBe("native-mcp:run-1");
-    expect(context.mcp.assignmentSetId).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(context.mcp.digest).toBe(expected);
+    const newRun = await resolveNativeRuntimeMcpSnapshot({ db: {} as Db, agent: { id: "agent-1", companyId: "company-1" }, runId: "run-2" });
+    expect(newRun.digest).toBe(expected);
+    expect(newRun.bindingId).toBe("native-mcp:run-2");
   });
 
   it("materializes every instruction and selected-skill file as immutable, content-addressed context", async () => {

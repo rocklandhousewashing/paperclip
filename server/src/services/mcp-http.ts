@@ -166,3 +166,18 @@ export function parseMcpHttpResponseBody(bodyText: string, contentType: string |
   if (lastError) throw lastError;
   throw new SyntaxError("MCP SSE response contained no data events");
 }
+
+/** MCP structuredContent is optional, but when present it must be a JSON object. */
+export function mcpStructuredContent(value: unknown): { structuredContent?: Record<string, unknown> } {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return {};
+  return { structuredContent: value as Record<string, unknown> };
+}
+
+export function mcpTextResult(value: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(value) ?? "null" }],
+    ...mcpStructuredContent(value),
+  };
+}
