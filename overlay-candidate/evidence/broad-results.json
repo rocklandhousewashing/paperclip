@@ -1,0 +1,193 @@
+{
+  "exitCode": 1,
+  "startedAtUtc": "2026-10-26T13:50:14Z",
+  "durationSeconds": 6328.94,
+  "files": {
+    "passed": 943,
+    "failed": 9,
+    "skipped": 4,
+    "total": 956
+  },
+  "tests": {
+    "passed": 17290,
+    "failed": 32,
+    "skipped": 60,
+    "total": 17382
+  },
+  "suiteSetupFailures": 1,
+  "logSha256": "52ba9f2bcd084caaef0c8c46594bb2c18ce736bbae65875d00bee9918ac1868d",
+  "summary": [
+    "Test Files  9 failed | 943 passed | 4 skipped (956)",
+    "Tests  32 failed | 17290 passed | 60 skipped (17382)",
+    "Start at  13:50:14",
+    "Duration  6328.94s (transform 81.67s, setup 49.64s, import 1401.82s, tests 4892.88s, environment 92ms)"
+  ],
+  "sourceBoundary": "Started before final route-format correction; final committed-source focused run passed 318 tests.",
+  "failures": [
+    {
+      "case": "FAIL  |@paperclipai/server| src/services/native-runtime/native-codex-runner.integration.test.ts > native Codex server vertical slice",
+      "diagnostic": "Error: spawnSync cargo ENOENT",
+      "firstLocation": "\u276f ensureRunnerTestBinaries src/services/native-runtime/native-codex-runner.integration.test.ts:63:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/adapter-utils| src/execution-target-stdin-race.test.ts > deterministic remote process-session wrapper shutdown (PAP-5316) > T22 leaves a peer's replacement file untouched instead of deleting it",
+      "diagnostic": "Error: Timed out waiting for condition.",
+      "firstLocation": "\u276f waitFor src/execution-target-stdin-race.test.ts:651:11"
+    },
+    {
+      "case": "FAIL  |@paperclipai/adapter-utils| src/acpx-engine/execute.test.ts > shared ACPX engine runtime behavior > keeps Claude startup model handling and Gemini session config handling unchanged",
+      "diagnostic": "Error: ENOENT: no such file or directory, mkdir '/home/ubuntu/.gemini'",
+      "firstLocation": "\u276f prepareGeminiSkillRuntime src/acpx-engine/execute.ts:1366:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/adapter-utils| src/acpx-engine/startup-characterization.test.ts > ACPX engine startup characterization > startup exit paths and cleanup > configure_session failure: configure_session error and the runtime closes",
+      "diagnostic": "Error: ENOENT: no such file or directory, mkdir '/home/ubuntu/.gemini'",
+      "firstLocation": "\u276f prepareGeminiSkillRuntime src/acpx-engine/execute.ts:1366:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/chat-channels.integration.test.ts > chat channel control-plane integration > Discord native commands with durable service authority > fresh-after-close publication bindings > keeps a newly closed source internal after a still newer source reopens the thread",
+      "diagnostic": "Error: Test timed out in 15000ms.",
+      "firstLocation": "\u276f src/__tests__/chat-channels.integration.test.ts:45909:7"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/chat-channels.integration.test.ts > chat channel control-plane integration > Discord native commands with durable service authority > fresh-after-close publication bindings > refuses delayed provider chronology at intake when first ingested after close",
+      "diagnostic": "AssertionError: expected undefined to be defined",
+      "firstLocation": "\u276f src/__tests__/chat-channels.integration.test.ts:1484:28"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/pi-local-execute.test.ts > pi_local execute > fails the run when Pi exhausts automatic retries despite exiting 0",
+      "diagnostic": "Error: ENOENT: no such file or directory, mkdir '/home/ubuntu/.pi'",
+      "firstLocation": "\u276f ensureSessionsDir ../packages/adapters/pi-local/src/server/execute.ts:147:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/pi-local-execute.test.ts > pi_local execute > prepends installed skill bin/ dirs to the spawned Pi child PATH",
+      "diagnostic": "Error: ENOENT: no such file or directory, mkdir '/home/ubuntu/.pi'",
+      "firstLocation": "\u276f ensureSessionsDir ../packages/adapters/pi-local/src/server/execute.ts:147:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/pi-local-execute.test.ts > pi_local execute > does not expose bin/ dirs from skills that are not injected",
+      "diagnostic": "Error: ENOENT: no such file or directory, mkdir '/home/ubuntu/.pi'",
+      "firstLocation": "\u276f ensureSessionsDir ../packages/adapters/pi-local/src/server/execute.ts:147:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/redaction.test.ts > redaction > preserves credential-related prose, metadata, and dotted filenames",
+      "diagnostic": "AssertionError: expected { \u2026(6) } to deeply equal { \u2026(6) }",
+      "firstLocation": "\u276f src/__tests__/redaction.test.ts:22:35"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/redaction.test.ts > redaction > preserves public provider hostnames in a network allowlist",
+      "diagnostic": "AssertionError: expected { networkAllowlist: [ \u2026(3) ] } to deeply equal { networkAllowlist: [ \u2026(3) ] }",
+      "firstLocation": "\u276f src/__tests__/redaction.test.ts:36:50"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/vitest-chat-shards.test.ts > runs every active nested/parameterized fixture case exactly once through the real chat shard CLI",
+      "diagnostic": "AssertionError:",
+      "firstLocation": "\u276f createNewStoreController ../../../.cache/node/corepack/v1/pnpm/11.22.0/dist/pnpm.mjs:182735:5"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > realizeExecutionWorkspace > provisions worktree-local pnpm node_modules instead of reusing base-repo links",
+      "diagnostic": "Error: Execution workspace provision command \"bash ./scripts/provision-worktree.sh\" failed: existing worktree env is missing PAPERCLIP_HOME or PAPERCLIP_INSTANCE_ID",
+      "firstLocation": "\u276f runWorkspaceCommand src/services/workspace-runtime.ts:3024:9"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > realizeExecutionWorkspace > provisions successfully when install is needed but there are no symlinked node_modules to move",
+      "diagnostic": "Error: Execution workspace provision command \"bash ./scripts/provision-worktree.sh\" failed: paperclipai worktree init unavailable; writing isolated fallback config without DB seeding.",
+      "firstLocation": "\u276f runWorkspaceCommand src/services/workspace-runtime.ts:3024:9"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > realizeExecutionWorkspace > reinstalls worktree-local pnpm dependencies when package metadata changes",
+      "diagnostic": "Error: Command failed: /tmp/paperclip-worktree-stale-deps-3MDKax/worktree/provision-worktree.sh",
+      "firstLocation": null
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > realizeExecutionWorkspace > retries worktree-local pnpm install without a frozen lockfile when the lockfile is outdated",
+      "diagnostic": "Error: Command failed: /tmp/paperclip-worktree-outdated-lockfile-4g06Gr/worktree/provision-worktree.sh",
+      "firstLocation": null
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > realizeExecutionWorkspace > provisions worktree-local pnpm node_modules instead of reusing base-repo links",
+      "diagnostic": "Error: Execution workspace provision command \"bash ./scripts/provision-worktree.sh\" failed: existing worktree env is missing PAPERCLIP_HOME or PAPERCLIP_INSTANCE_ID",
+      "firstLocation": "\u276f runWorkspaceCommand src/services/workspace-runtime.ts:3024:9"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > enables UI dev middleware by default for managed Paperclip worktree runtimes",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-paperclip-dev-f31bd6878d24fa781a712ffb.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > injects isolated browser callback origins into separate worktree runtimes",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-paperclip-dev-4b5610994e7c00673510eabd.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > requires Paperclip dev runtime services to pass /api/health readiness",
+      "diagnostic": "AssertionError: expected [Function] to throw error matching /Readiness check failed for http:\\/\\/\u2026/\\ but got 'EROFS: read-only file system, open \\'\u2026'",
+      "firstLocation": "\u276f src/__tests__/workspace-runtime.test.ts:4605:8"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > replaces a reused Paperclip dev runtime whose 2xx health payload is unhealthy",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-paperclip-dev-ecda0345040b6b0e2fc88b4a.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > reuses a shared Paperclip dev runtime after one transient unhealthy response",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-paperclip-dev-1930ab3902abd23f9c2d5184.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > reuses shared runtime services across runs and starts a new service after release",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-web-4955340a5b7357651b0fa257.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > does not reuse project-scoped shared services across different workspace launch contexts",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-paperclip-dev-7c351236c124a39a24943b3d.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > stops execution workspace runtime services by executionWorkspaceId",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-web-e2ad9ed98a9699ff1f70308f.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > does not stop services in sibling directories when matching by workspace cwd",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-web-900202acb018a88d544f3c04.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > starts only the selected workspace-controlled runtime service",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-worker-47417fa78b194b200c640ebe.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > ensureRuntimeServicesForRun > stops only the selected execution workspace runtime service",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-web-bc221567a1ca8a0c0baa7a2c.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > workspace runtime startup reconciliation > does not adopt a live registry process from another workspace with the same runtime service ID",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-services/workspace-runtime-paperclip-dev-stale.json'",
+      "firstLocation": "\u276f writeLocalServiceRegistryRecord src/services/local-service-supervisor.ts:167:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > workspace runtime startup reconciliation > adopts stopped persisted local services when a matching registry process is alive",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-services/workspace-runtime-paperclip-dev-live-stopped.json'",
+      "firstLocation": "\u276f writeLocalServiceRegistryRecord src/services/local-service-supervisor.ts:167:3"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > workspace runtime startup reconciliation > persists controlled execution workspace stops as stopped",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-web-3f7f0846bf38518e8cc16d67.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > workspace runtime startup reconciliation > restarts a stopped auto-port service on the same port when rendered env changes",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-web-fd6d3a65da89e7ade625ffa4.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    },
+    {
+      "case": "FAIL  |@paperclipai/server| src/__tests__/workspace-runtime.test.ts > workspace runtime startup reconciliation > restarts a stopped auto-port service on the same port when it is available",
+      "diagnostic": "Error: EROFS: read-only file system, open '/home/ubuntu/.paperclip/instances/default/runtime-service-logs/workspace-runtime-web-c083039cd863054d307aa281.log'",
+      "firstLocation": "\u276f openLocalServiceLogFile src/services/local-service-supervisor.ts:88:18"
+    }
+  ]
+}

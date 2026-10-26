@@ -1,0 +1,11 @@
+{
+  "exitCode": 0,
+  "logSha256": "7f578cfafa04d8324dfe8e14519e2ce160bb3c42dbb75ad7ed45c140fd8aa146",
+  "summary": [
+    "Test Files  1 passed (1)",
+    "Tests  2 passed | 993 skipped (995)",
+    "Start at  14:16:04",
+    "Duration  68.65s (transform 31.40s, setup 272ms, import 48.59s, tests 19.39s, environment 0ms)"
+  ],
+  "isolation": "Bubblewrap no-network/read-only host; disposable Paperclip state; HOME unchanged"
+}

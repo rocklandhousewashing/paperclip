@@ -1,0 +1,497 @@
+{
+  "schema_version": 1,
+  "purpose": "CO-593 review candidate; not a deployable manifest for the existing fixed-closure verifier",
+  "source_parent_sha": "2828f1a0507d5ba8e05287fa0693c81a676313c8",
+  "source_child_sha": "7b9e38b6326149596679cabc12bbf862bf294bb6",
+  "pnpm_lock_sha256": "af3b879fea127a608b0f9279627f357638299441bbf41835f0b91ab0162e441c",
+  "toolchain": {
+    "node": "v24.21.0",
+    "node_sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "pnpm": "9.15.4",
+    "typescript": "7.0.2"
+  },
+  "existing_overlay_manifest_sha256": "0285e7d17156535a7c1bd67b176f89944cc74bd6c4833c132f3302f31856664d",
+  "existing_overlay_verifier_sha256": "80cd6f927e7d3f3c078c608e6736e9178a64ba2875ae8f4f11a365da981700c8",
+  "modules": [
+    {
+      "source": "packages/adapter-utils/src/acpx-engine/execute.ts",
+      "output": "packages/adapter-utils/dist/acpx-engine/execute",
+      "prefix": "@paperclipai/adapter-utils/dist/acpx-engine/execute"
+    },
+    {
+      "source": "packages/adapter-utils/src/server-utils.ts",
+      "output": "packages/adapter-utils/dist/server-utils",
+      "prefix": "@paperclipai/adapter-utils/dist/server-utils"
+    },
+    {
+      "source": "packages/adapters/claude-local/src/server/execute.ts",
+      "output": "packages/adapters/claude-local/dist/server/execute",
+      "prefix": "@paperclipai/adapter-claude-local/dist/server/execute"
+    },
+    {
+      "source": "packages/shared/src/validators/agent.ts",
+      "output": "packages/shared/dist/validators/agent",
+      "prefix": "@paperclipai/shared/dist/validators/agent"
+    },
+    {
+      "source": "packages/shared/src/validators/tool-access.ts",
+      "output": "packages/shared/dist/validators/tool-access",
+      "prefix": "@paperclipai/shared/dist/validators/tool-access"
+    },
+    {
+      "source": "server/src/routes/connection-intents.ts",
+      "output": "server/dist/routes/connection-intents",
+      "prefix": "@paperclipai/server/dist/routes/connection-intents"
+    },
+    {
+      "source": "server/src/routes/project-tools.ts",
+      "output": "server/dist/routes/project-tools",
+      "prefix": "@paperclipai/server/dist/routes/project-tools"
+    },
+    {
+      "source": "server/src/routes/tool-gateway.ts",
+      "output": "server/dist/routes/tool-gateway",
+      "prefix": "@paperclipai/server/dist/routes/tool-gateway"
+    },
+    {
+      "source": "server/src/services/heartbeat.ts",
+      "output": "server/dist/services/heartbeat",
+      "prefix": "@paperclipai/server/dist/services/heartbeat"
+    },
+    {
+      "source": "server/src/services/mcp-http.ts",
+      "output": "server/dist/services/mcp-http",
+      "prefix": "@paperclipai/server/dist/services/mcp-http"
+    },
+    {
+      "source": "server/src/services/native-runtime/runtime-context.ts",
+      "output": "server/dist/services/native-runtime/runtime-context",
+      "prefix": "@paperclipai/server/dist/services/native-runtime/runtime-context"
+    },
+    {
+      "source": "server/src/services/tool-gateway.ts",
+      "output": "server/dist/services/tool-gateway",
+      "prefix": "@paperclipai/server/dist/services/tool-gateway"
+    }
+  ],
+  "entry_prefix_additions": [
+    "@paperclipai/adapter-utils/dist/acpx-engine/execute",
+    "@paperclipai/adapter-utils/dist/server-utils",
+    "@paperclipai/server/dist/routes/connection-intents",
+    "@paperclipai/server/dist/routes/project-tools",
+    "@paperclipai/server/dist/routes/tool-gateway",
+    "@paperclipai/server/dist/services/mcp-http",
+    "@paperclipai/server/dist/services/native-runtime/runtime-context",
+    "@paperclipai/server/dist/services/tool-gateway",
+    "@paperclipai/shared/dist/validators/agent",
+    "@paperclipai/shared/dist/validators/tool-access"
+  ],
+  "entries": [
+    {
+      "path": "@paperclipai/adapter-claude-local/dist/server/execute.d.ts",
+      "sha256": "3b81604d5ea8856446baf20e27690a21a82766d7abb6b38acc65f4b98577ecef",
+      "installed_sha256": "3b81604d5ea8856446baf20e27690a21a82766d7abb6b38acc65f4b98577ecef",
+      "bytes": 874,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/adapter-claude-local/dist/server/execute.d.ts.map",
+      "sha256": "ef9944f7a1dbfa281ea9e3f51028576e97d87c89d43c6338edd4c68a693ab2ff",
+      "installed_sha256": "1ab33b384c2aad1e7c7e98aea3624a919c99f3f9e1ed2c5cddf4e0bd89588dd4",
+      "bytes": 751,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-claude-local/dist/server/execute.js",
+      "sha256": "c4551b80a47b6509af9aab7f5da0fa75ec21d3d581bb9554ab47e7aff674b453",
+      "installed_sha256": "9d74f326404ce09d4d1b506f3717a3b186f32d9b0a471e0c79c69053406dca93",
+      "bytes": 56964,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-claude-local/dist/server/execute.js.map",
+      "sha256": "b240837593721be99dfb205bbeb3925548b862bc75c4f9539b6dc9d7c0926fe0",
+      "installed_sha256": "3f189f7c2166b3e72d472981881ce320e4cdbe8237d5a506bf5dbf5c5ae448be",
+      "bytes": 40491,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/acpx-engine/execute.d.ts",
+      "sha256": "749312d0993db62058211c94c9e34b38b5ecc3087d3d840e8fe0e246ac6ae50d",
+      "installed_sha256": "749312d0993db62058211c94c9e34b38b5ecc3087d3d840e8fe0e246ac6ae50d",
+      "bytes": 18083,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/acpx-engine/execute.d.ts.map",
+      "sha256": "1ad141851b8a9d1ed96ed2df08b20aa6fd3f07d9537055406e5fe9fb491f9d69",
+      "installed_sha256": "63e2bec0af4f053597c584b96139dbd0c27802c6045820abc48e34bd01447789",
+      "bytes": 4788,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/acpx-engine/execute.js",
+      "sha256": "cef7e559276aba7e4563970069a8916f04af166729e3b28cddb91bf56a6405ad",
+      "installed_sha256": "ca4c4e80f5857ba9bb09557e3c9e53c08f2653ee4dab9af6482f9a0f418f7bd0",
+      "bytes": 239567,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/acpx-engine/execute.js.map",
+      "sha256": "4dc2f93f15de793d9e65dafb14185a985f56acf045c8b079bbb9da88bba738a9",
+      "installed_sha256": "a3820ff5aaeeef949434febc638bd99989bc115f52c7c3ffa29422b583b3be67",
+      "bytes": 136527,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/server-utils.d.ts",
+      "sha256": "015b0c6e1399d2979d1c714d1440d33e0c9c671d5e793d33b4c81291f69f5b6d",
+      "installed_sha256": "9fe64c744e8469a0bac2dedeebff322cf60251d6840b7250f021f2e4697bfb1b",
+      "bytes": 25825,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/server-utils.d.ts.map",
+      "sha256": "aabb132c7989d69d3a82b0e9b5f18bcfea21e4fd0a8bc02d5f9de8e77e33e53f",
+      "installed_sha256": "9c53860e3e3893818d9fe87559cd87173da007b433a3de1cc2685f18765b65d4",
+      "bytes": 21593,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/server-utils.js",
+      "sha256": "690d1230773e0e5bf8c5c53b6a1ef22a80c886f39f8a45ecc721ca848128481c",
+      "installed_sha256": "0102e29fe443e1cc1a4a01008afce521c9fbadc6a01804cd0173200ffb968938",
+      "bytes": 166933,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/adapter-utils/dist/server-utils.js.map",
+      "sha256": "23dc717d63e145eee32a0c9e427ae744bc3cc838c5c139f906fb9b2fa7368520",
+      "installed_sha256": "e04733ec7509b7272d2021eedf835d8f935cf1a427e1175a1a5b5d3a92707568",
+      "bytes": 127140,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/connection-intents.d.ts",
+      "sha256": "5d57e54c7fd8a2869c70b09beb874ceefe3d337ceb22aa5f5763c52ea9dc3dfc",
+      "installed_sha256": "5d57e54c7fd8a2869c70b09beb874ceefe3d337ceb22aa5f5763c52ea9dc3dfc",
+      "bytes": 727,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/connection-intents.d.ts.map",
+      "sha256": "057fcc3cf1404e7ae46b4fa0f275816f0ad5b06f8a634bc01f23ce0571bdc726",
+      "installed_sha256": "dfb67702e6b87fdc8c984691c4ddca5b13282e842b4cbe92a3bb89fb966ba587",
+      "bytes": 508,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/connection-intents.js",
+      "sha256": "b8e709812f6454630904c2d7eaf5bea74bf3e2117a175df50261a9de062ea3b0",
+      "installed_sha256": "80a097444aa8434daa6aa9ec0a1c291b5547e388bc7df5ccf011222dbaa7bbfc",
+      "bytes": 10234,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/connection-intents.js.map",
+      "sha256": "c001ebd31bbd171be79ce6fbd0eac914cfa079df1cbfcc90a44dbba36b22d00b",
+      "installed_sha256": "c33a9633c3cdddd0dd2b09b68365f6df72fbe0724dba8dca3d93582390bd1c25",
+      "bytes": 9027,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/project-tools.d.ts",
+      "sha256": "b3991cd908021bd137b036cf424629ca39f14e63b33fc763c23dfb8a8c385995",
+      "installed_sha256": "b3991cd908021bd137b036cf424629ca39f14e63b33fc763c23dfb8a8c385995",
+      "bytes": 271,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/project-tools.d.ts.map",
+      "sha256": "6ef63ae894fdd4225b378bbe5f3300959a39a565941b9547af3ae4ee7b2c1c30",
+      "installed_sha256": "b6c688836b01212f92248316a430f9f8e198f6e4a06acaa5ea0e53683e2a52e1",
+      "bytes": 237,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/project-tools.js",
+      "sha256": "bea1f8194b505a36b9475693fa36584d7c07fa86d55e907015a6d1d783413cd3",
+      "installed_sha256": "b29b64123f5fac56715c736f1dd49d4f98bffcfb097014a062d31232f868519d",
+      "bytes": 2451,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/project-tools.js.map",
+      "sha256": "0587f3f3a77d230a534d6d414de29eaee8ff453090a56623dc2bea7331f3fe97",
+      "installed_sha256": "1aaaf1c4926490c368f56ae1b5f09f5d0c8ee3bef7a2830368d5cd573b409554",
+      "bytes": 2503,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/tool-gateway.d.ts",
+      "sha256": "6289ded6ba63ec4a07718fb39502c6b39652161ae16d23e5ecedf17c206687a5",
+      "installed_sha256": "6289ded6ba63ec4a07718fb39502c6b39652161ae16d23e5ecedf17c206687a5",
+      "bytes": 411,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/tool-gateway.d.ts.map",
+      "sha256": "46057563f5033784b2b66ea9dae71dc736b94ea5595a73e2bfa95d6dd0a15e43",
+      "installed_sha256": "acc5d76dce3942b0e93364e4a1abbfb7517d833a10a29e10b81e9a4c0b8169c9",
+      "bytes": 346,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/tool-gateway.js",
+      "sha256": "e8de4c542d1c2261466050f338fd5a110df4e3e82aef4e5790cba8412b8f9afc",
+      "installed_sha256": "44e8dca5ecd7a7c85643a3390a875acc9f4661a6b632b9e23c5ab828595ce2b8",
+      "bytes": 47268,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/tool-gateway.js.map",
+      "sha256": "1df8428e2b1e61d827bc073f2c66d3c4d0076e3b0e4718bf8010b08791541293",
+      "installed_sha256": "4db038339f498fa593615605493eb63dfafc69e2550262822abef542c7a6fa38",
+      "bytes": 43849,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/heartbeat.d.ts",
+      "sha256": "8590a83cd013b77b1de65b7c90c384b3267f3cf42711f7884b046f51a7000df8",
+      "installed_sha256": "8590a83cd013b77b1de65b7c90c384b3267f3cf42711f7884b046f51a7000df8",
+      "bytes": 147889,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/server/dist/services/heartbeat.d.ts.map",
+      "sha256": "825e8571823b1e75bc5adb9da9429fff12f9a349313adfe6c56d4e8d67cbe153",
+      "installed_sha256": "9154d22e2adbf3a8372fce322d9f804f0d61de1310e44487601c951b25c666e1",
+      "bytes": 40691,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/heartbeat.js",
+      "sha256": "711ac12b6ca0a8cc79afb4bebf70598ca62f74ceb6265a5110d7f1247ef5b84a",
+      "installed_sha256": "c19e5bc55d24dcb9e256878eb1dee64bfea54182276fc698116ee98ff560ea43",
+      "bytes": 1119924,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/heartbeat.js.map",
+      "sha256": "633d2da3f8bf6922d4b7ddf0549082b6ae110bedb82c16e38b8241492cd394ec",
+      "installed_sha256": "1d998ea6993f1e18c30ec3464454d9e6a6e4ef1f841b8e233e8925000850ed83",
+      "bytes": 739681,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/mcp-http.d.ts",
+      "sha256": "8b8bff660d9f9ecaa53cc617a6edf90a46e150282c31d01037cae2ff1d7cc64c",
+      "installed_sha256": "6dab9014b6f133bcc33389953bfe995f64003f18893cb1e4362a304eebb0ad1c",
+      "bytes": 2284,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/mcp-http.d.ts.map",
+      "sha256": "d5c10abc1c6126079dce097b8574cceb886974130e226d1932ec8fe09215271f",
+      "installed_sha256": "44a079003ac1c24143fbc28b67c118a23c47c0c49329c122e8e40e0e02143ffe",
+      "bytes": 1117,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/mcp-http.js",
+      "sha256": "a480cdece0eba5eb3558d9bf6bcf377f9bf3288d246029e0293d8bd7eb7a33c3",
+      "installed_sha256": "814d434ba4b31ccfda8ef2a2124b4548d50b63f350024ba56480b2c9072a5c4c",
+      "bytes": 6675,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/mcp-http.js.map",
+      "sha256": "a519cf667c90b215bcbe8ca110e129426fb44680b8afafb8b09ff387153b4c1f",
+      "installed_sha256": "0a4fbf1190a32e028836a4223fe5d74a46ed7e0d6e8301695c544c59a00f671b",
+      "bytes": 4659,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/native-runtime/runtime-context.d.ts",
+      "sha256": "170176e5a7f041c835d8104a169a217aa848db56015cbad932d6ede14d5f7400",
+      "installed_sha256": "170176e5a7f041c835d8104a169a217aa848db56015cbad932d6ede14d5f7400",
+      "bytes": 1125,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/server/dist/services/native-runtime/runtime-context.d.ts.map",
+      "sha256": "3e8a422b35640896516d0d47357a33f3fbf388dbe239e93d10264c106b390290",
+      "installed_sha256": "a221755c5eefc7ef2d92f759827c7f023ec3b4b346f952c71f839f096be4ac54",
+      "bytes": 1068,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/native-runtime/runtime-context.js",
+      "sha256": "8d48f822da45b2b222e107863229ec85bc924efbd5ecb6b3a72c26901014bec1",
+      "installed_sha256": "0a6fe0c1d20c12738d7bc8f79d403c3ee0c18029ccc4c85f3b39cdac5af5ce9f",
+      "bytes": 13542,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/native-runtime/runtime-context.js.map",
+      "sha256": "414e636c6c661d8a9a4b4907b2914754f191170796929f134817f3a7fe9dc480",
+      "installed_sha256": "f0a921ef295f49ee4e25b135e1d1173c9a10b4ce67318167a716b6a3ac03f6e0",
+      "bytes": 13146,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/tool-gateway.d.ts",
+      "sha256": "5a74959e3f02c63e14890ba305ad6d670746c3d62329e8adfacd268b63f69edf",
+      "installed_sha256": "a32f0f6f5591eb6cde96f102ee93d8da792924c81e787a2b3213107567e999da",
+      "bytes": 16671,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/tool-gateway.d.ts.map",
+      "sha256": "662768ddd86421263ec224bdf9ac69311f5a012e98104386cfb3d7d8159cf388",
+      "installed_sha256": "b03cfe077144ce4ae803157397c77a3fc8ec64076cb43a03da0f0940ee9ec972",
+      "bytes": 10608,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/tool-gateway.js",
+      "sha256": "bfce75d3d71ba7ae4e0438b4e04fba4de7ff6fbfcd367fc78ae8bf6721defbe4",
+      "installed_sha256": "f777e8d2990fda6cf4292f2ac271921c2c522ecbf41aee87b853750c6f667fcf",
+      "bytes": 359780,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/services/tool-gateway.js.map",
+      "sha256": "983691b89e0c2bf883df7713deb5b23e09e3d7ff31dfa5e4db3be9cf3980129e",
+      "installed_sha256": "993d3361e18d173368ed884f7335cf1f04677c0d5e921c23b764eb3839ba7356",
+      "bytes": 263980,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/agent.d.ts",
+      "sha256": "dd1d38f5726e1eacb266f56c5345e6d003c0e947617757894d68f2cb32cce54e",
+      "installed_sha256": "115381101daf2f7558a9cb11bed6e4bbcbf7a41920de0b1d3f666d4c671f1224",
+      "bytes": 33265,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/agent.d.ts.map",
+      "sha256": "9662cb40012ad9ec47ed3e3966fcb868b7eb89c7bffd4d6ad7ee93c7bbed0ac0",
+      "installed_sha256": "a92cc799d2cc7af10541cf45c36bd986676f1fe22ce644881920cd0622e4a259",
+      "bytes": 2996,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/agent.js",
+      "sha256": "2d28ea5d23405ce699f2e072e00dc41f6cd53435b807c74265e500bf58491a80",
+      "installed_sha256": "5f264746a5b2871b1590a951d344c358a803090092afc9ca455c2684d55b50de",
+      "bytes": 10781,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/agent.js.map",
+      "sha256": "fed9b89d252645efde971fb2975666085b036a2ffed51efc50e94e20a35f61ca",
+      "installed_sha256": "345719751cdeeae178d2b1276b07ca1b9f02c6d922fde1f23ad1666551171d91",
+      "bytes": 10895,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/tool-access.d.ts",
+      "sha256": "d57207168c3d834117973c2db913d4f5589f434ca26016869dadf94b2a2de247",
+      "installed_sha256": "d57207168c3d834117973c2db913d4f5589f434ca26016869dadf94b2a2de247",
+      "bytes": 81054,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/tool-access.d.ts.map",
+      "sha256": "ba25f5219360d6d04dc7965f2de29f79f6a6980aa58472a4b46607d1e9631e16",
+      "installed_sha256": "1eac8059fbd31b1354e274c9e4750e0d6be1e4654dfb54604d11dab1eba9985f",
+      "bytes": 8686,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/tool-access.js",
+      "sha256": "6217d312e6439edffff1aa0bfd2c41b79bc0c638d61659bba8f4d74dc6698955",
+      "installed_sha256": "b804521731da072ce482519541572f0f20fc69946d1c3a99ae188d896811f22e",
+      "bytes": 46950,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/shared/dist/validators/tool-access.js.map",
+      "sha256": "322208a454d0706caf42f662f622df589544954ace71ddf052f8f89e2e4d3829",
+      "installed_sha256": "835dce16cc9b25549916a82116ee8edf4cc40e1af10ec9537af416ad054bd2ab",
+      "bytes": 56308,
+      "mode": "0644",
+      "changed": true
+    }
+  ],
+  "package_anchors": [
+    {
+      "path": "@paperclipai/adapter-claude-local/package.json",
+      "sha256": "3a53394d10236d0434b3e519d20d27f76f61d8db6b2a87ec1aec51442d34483b",
+      "version": "2026.916.1"
+    },
+    {
+      "path": "@paperclipai/adapter-utils/package.json",
+      "sha256": "b47ccd810e01f9198eb88158c4c997cb138865806e3ee4a458ebb6a5294a9bfe",
+      "version": "2026.916.1"
+    },
+    {
+      "path": "@paperclipai/server/package.json",
+      "sha256": "625ae83cb1919018171ca75dfa0e905b3ba6e4a93d35f58a88af7781a6b72e54",
+      "version": "2026.916.1"
+    },
+    {
+      "path": "@paperclipai/shared/package.json",
+      "sha256": "6369b85689065c63dcc1b68e734b88a9b418a9ea494366a27c6465c38ae5b24c",
+      "version": "2026.916.1"
+    }
+  ]
+}

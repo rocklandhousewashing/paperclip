@@ -1,0 +1,11 @@
+{
+  "exitCode": 1,
+  "logSha256": "9879c6cdc9589102138ddf57fb41d6d0762de38076a60ab859444d21401f0d37",
+  "summary": [
+    "Test Files  1 failed (1)",
+    "Tests  2 failed | 24 passed (26)",
+    "Start at  14:55:27",
+    "Duration  380ms (transform 133ms, setup 88ms, import 138ms, tests 25ms, environment 0ms)"
+  ],
+  "sourceComparison": "server/src/redaction.ts and its test are byte-identical to required parent; CO-593 does not alter redactCommandText"
+}

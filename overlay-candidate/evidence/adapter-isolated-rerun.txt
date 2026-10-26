@@ -1,0 +1,29 @@
+RUN  v4.1.11 /home/ubuntu/jarvis-change-orders/codex-co-593-paperclip-tool-gateway
+
+ ❯ |co593-adapter-rerun| packages/adapter-utils/src/acpx-engine/startup-characterization.test.ts (17 tests | 1 failed | 16 skipped) 26ms
+       × configure_session failure: configure_session error and the runtime closes 24ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |co593-adapter-rerun| packages/adapter-utils/src/acpx-engine/startup-characterization.test.ts > ACPX engine startup characterization > startup exit paths and cleanup > configure_session failure: configure_session error and the runtime closes
+Error: ENOENT: no such file or directory, mkdir '/home/ubuntu/.gemini'
+ ❯ prepareGeminiSkillRuntime packages/adapter-utils/src/acpx-engine/execute.ts:1366:3
+    1364|   const skillSetKey = await buildSkillSetKey({ skills: selectedSkills,…
+    1365|   const skillsHome = resolveGeminiSkillsHome(input.config);
+    1366|   await fs.mkdir(skillsHome, { recursive: true });
+       |   ^
+    1367|
+    1368|   const allowedSkillNames = selectedSkills.map((entry) => entry.runtim…
+ ❯ buildRuntime packages/adapter-utils/src/acpx-engine/execute.ts:2062:28
+ ❯ Object.startup packages/adapter-utils/src/acpx-engine/execute.ts:4136:22
+ ❯ runAttempt packages/adapter-utils/src/acpx-engine/run-coordinator.ts:90:21
+ ❯ executeAcpxEngine packages/adapter-utils/src/acpx-engine/execute.ts:5402:14
+ ❯ packages/adapter-utils/src/acpx-engine/startup-characterization.test.ts:710:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 1 passed | 49 skipped (51)
+   Start at  14:16:57
+   Duration  15.60s (transform 10.52s, setup 0ms, import 14.81s, tests 378ms, environment 0ms)

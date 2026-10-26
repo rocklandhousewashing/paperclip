@@ -1,0 +1,42 @@
+{
+  "sourceChild": "7b9e38b6326149596679cabc12bbf862bf294bb6",
+  "focusedTests": {
+    "exitCode": 0,
+    "filesPassed": 13,
+    "testsPassed": 318,
+    "logSha256": "1d7a340dffbb7649442fedcfd98638326416227d5009c621289940165f4d30fe",
+    "summary": [
+      "Test Files  13 passed (13)",
+      "Tests  318 passed (318)",
+      "Start at  13:59:45",
+      "Duration  237.61s (transform 46.27s, setup 873ms, import 93.82s, tests 143.94s, environment 1ms)"
+    ]
+  },
+  "typechecks": {
+    "@paperclipai/server": {
+      "command": "pnpm --filter @paperclipai/server exec tsc --noEmit",
+      "exitCode": 0,
+      "diagnostics": []
+    },
+    "@paperclipai/shared": {
+      "command": "pnpm --filter @paperclipai/shared exec tsc --noEmit",
+      "exitCode": 0,
+      "diagnostics": []
+    },
+    "@paperclipai/adapter-utils": {
+      "command": "pnpm --filter @paperclipai/adapter-utils exec tsc --noEmit",
+      "exitCode": 0,
+      "diagnostics": []
+    },
+    "@paperclipai/adapter-claude-local": {
+      "command": "pnpm --filter @paperclipai/adapter-claude-local exec tsc --noEmit",
+      "exitCode": 0,
+      "diagnostics": []
+    }
+  },
+  "workspaceLimits": {
+    "pnpm -r typecheck": "exit 1: cargo: not found",
+    "pnpm build": "exit 1: cargo: not found"
+  },
+  "productionAcceptance": "not run; candidate is not installed"
+}

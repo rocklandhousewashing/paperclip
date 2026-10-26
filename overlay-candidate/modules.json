@@ -1,0 +1,62 @@
+[
+  {
+    "source": "packages/adapter-utils/src/acpx-engine/execute.ts",
+    "output": "packages/adapter-utils/dist/acpx-engine/execute",
+    "prefix": "@paperclipai/adapter-utils/dist/acpx-engine/execute"
+  },
+  {
+    "source": "packages/adapter-utils/src/server-utils.ts",
+    "output": "packages/adapter-utils/dist/server-utils",
+    "prefix": "@paperclipai/adapter-utils/dist/server-utils"
+  },
+  {
+    "source": "packages/adapters/claude-local/src/server/execute.ts",
+    "output": "packages/adapters/claude-local/dist/server/execute",
+    "prefix": "@paperclipai/adapter-claude-local/dist/server/execute"
+  },
+  {
+    "source": "packages/shared/src/validators/agent.ts",
+    "output": "packages/shared/dist/validators/agent",
+    "prefix": "@paperclipai/shared/dist/validators/agent"
+  },
+  {
+    "source": "packages/shared/src/validators/tool-access.ts",
+    "output": "packages/shared/dist/validators/tool-access",
+    "prefix": "@paperclipai/shared/dist/validators/tool-access"
+  },
+  {
+    "source": "server/src/routes/connection-intents.ts",
+    "output": "server/dist/routes/connection-intents",
+    "prefix": "@paperclipai/server/dist/routes/connection-intents"
+  },
+  {
+    "source": "server/src/routes/project-tools.ts",
+    "output": "server/dist/routes/project-tools",
+    "prefix": "@paperclipai/server/dist/routes/project-tools"
+  },
+  {
+    "source": "server/src/routes/tool-gateway.ts",
+    "output": "server/dist/routes/tool-gateway",
+    "prefix": "@paperclipai/server/dist/routes/tool-gateway"
+  },
+  {
+    "source": "server/src/services/heartbeat.ts",
+    "output": "server/dist/services/heartbeat",
+    "prefix": "@paperclipai/server/dist/services/heartbeat"
+  },
+  {
+    "source": "server/src/services/mcp-http.ts",
+    "output": "server/dist/services/mcp-http",
+    "prefix": "@paperclipai/server/dist/services/mcp-http"
+  },
+  {
+    "source": "server/src/services/native-runtime/runtime-context.ts",
+    "output": "server/dist/services/native-runtime/runtime-context",
+    "prefix": "@paperclipai/server/dist/services/native-runtime/runtime-context"
+  },
+  {
+    "source": "server/src/services/tool-gateway.ts",
+    "output": "server/dist/services/tool-gateway",
+    "prefix": "@paperclipai/server/dist/services/tool-gateway"
+  }
+]

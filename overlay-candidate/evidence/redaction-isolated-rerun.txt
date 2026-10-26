@@ -1,0 +1,74 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - `__dirname` (vitest.config.ts:7:25). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /home/ubuntu/jarvis-change-orders/codex-co-593-paperclip-tool-gateway
+
+ ❯ |@paperclipai/server| src/__tests__/redaction.test.ts (26 tests | 2 failed) 25ms
+     × preserves credential-related prose, metadata, and dotted filenames 9ms
+     × preserves public provider hostnames in a network allowlist 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |@paperclipai/server| src/__tests__/redaction.test.ts > redaction > preserves credential-related prose, metadata, and dotted filenames
+AssertionError: expected { …(6) } to deeply equal { …(6) }
+
+- Expected
++ Received
+
+  {
+-   "authorizationRequired": true,
+-   "body": "Keep the private key in a secret manager. Document credential handling and token permissions. Use bearer tokens for authentication. Prefer bearer authentication.",
+-   "credentialHandling": "harness",
+-   "path": "deployment.credentials.example.md",
+-   "secretStorage": "vault",
+-   "tokenPolicy": "least privilege",
++   "authorizationRequired": "***REDACTED***",
++   "body": "Keep the private key in a secret manager. Document credential handling and token permissions. Use bearer ***REDACTED*** for authentication. Prefer bearer ***REDACTED***",
++   "credentialHandling": "***REDACTED***",
++   "path": "***REDACTED***",
++   "secretStorage": "***REDACTED***",
++   "tokenPolicy": "***REDACTED***",
+  }
+
+ ❯ src/__tests__/redaction.test.ts:22:35
+     20|       path: "deployment.credentials.example.md",
+     21|     };
+     22|     expect(sanitizeRecord(input)).toEqual(input);
+       |                                   ^
+     23|     expect(redactSensitiveText(input.body)).toBe(input.body);
+     24|     expect(sanitizeRecord({ credentials: { provider: "opaque-value" },…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  |@paperclipai/server| src/__tests__/redaction.test.ts > redaction > preserves public provider hostnames in a network allowlist
+AssertionError: expected { networkAllowlist: [ …(3) ] } to deeply equal { networkAllowlist: [ …(3) ] }
+
+- Expected
++ Received
+
+  {
+    "networkAllowlist": [
+-     "api.anthropic.com",
++     "***REDACTED***",
+      "claude.ai",
+-     "platform.claude.com",
++     "***REDACTED***",
+    ],
+  }
+
+ ❯ src/__tests__/redaction.test.ts:36:50
+     34|     ];
+     35|
+     36|     expect(sanitizeRecord({ networkAllowlist })).toEqual({ networkAllo…
+       |                                                  ^
+     37|   });
+     38|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 24 passed (26)
+   Start at  14:55:27
+   Duration  380ms (transform 133ms, setup 88ms, import 138ms, tests 25ms, environment 0ms)
