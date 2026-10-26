@@ -572,6 +572,67 @@ describe("claude_local ACP lane", () => {
     expect(settings.permissions.allow).toEqual(expect.arrayContaining(["Bash(curl:*)", "Bash(env)"]));
   });
 
+  it("puts selected skills in the private user scope for a managed local ACP seat", async () => {
+    const root = await makeTempRoot("paperclip-claude-acp-managed-local-");
+    const skill = await createRuntimeSkill(root);
+    const providerHome = path.join(root, "private-connection", "provider");
+    await fs.mkdir(providerHome, { recursive: true });
+    const execute = createClaudeAcpExecutor({
+      createRuntime: (options: FakeRuntimeOptions) => new FakeRuntime(options) as never,
+    });
+    const result = await execute(buildContext(root, {
+      config: {
+        engine: "acp", cwd: root, stateDir: path.join(root, "state"),
+        managedAiConnection: { provider: "anthropic", method: "api_key" },
+        env: { CLAUDE_CONFIG_DIR: providerHome },
+        paperclipRuntimeSkills: [skill],
+        paperclipSkillSync: { desiredSkills: [skill.key] },
+      },
+    }));
+    expect(result.exitCode).toBe(0);
+    const copied = path.join(providerHome, "skills", "review", "SKILL.md");
+    await expect(fs.readFile(copied, "utf8")).resolves.toContain("review skill");
+    expect((await fs.lstat(path.dirname(copied))).isSymbolicLink()).toBe(false);
+    expect((await fs.stat(copied)).mode & 0o222).toBe(0);
+  });
+
+  it("stages managed user-scope skills into a remote ACP seat's Claude config", async () => {
+    const root = await makeTempRoot("paperclip-claude-acp-managed-remote-");
+    const localCwd = path.join(root, "worktree");
+    const remoteCwd = path.join(root, "remote-workspace");
+    const providerHome = path.join(root, "private-connection", "provider");
+    const skill = await createRuntimeSkill(root);
+    await fs.mkdir(localCwd, { recursive: true });
+    await fs.mkdir(remoteCwd, { recursive: true });
+    await fs.mkdir(providerHome, { recursive: true });
+    const meta: AdapterInvocationMeta[] = [];
+    const execute = createClaudeAcpExecutor({
+      createRuntime: (options: FakeRuntimeOptions) => new FakeRuntime(options) as never,
+    });
+    const result = await execute(buildContext(localCwd, {
+      config: {
+        engine: "acp", cwd: localCwd, stateDir: path.join(root, "state"),
+        managedAiConnection: { provider: "anthropic", method: "api_key" },
+        env: { CLAUDE_CONFIG_DIR: providerHome },
+        paperclipRuntimeSkills: [skill],
+        paperclipSkillSync: { desiredSkills: [skill.key] },
+      },
+      executionTarget: {
+        kind: "remote", transport: "sandbox", providerKey: "fake-plugin", remoteCwd,
+        runner: createLocalSandboxRunner(),
+      } as never,
+      authToken: "test-run-jwt",
+      onMeta: async (payload: AdapterInvocationMeta) => { meta.push(payload); },
+    }));
+    expect(result.exitCode).toBe(0);
+    await expect(fs.readFile(path.join(providerHome, "skills", "review", "SKILL.md"), "utf8"))
+      .resolves.toContain("review skill");
+    const remoteConfigDir = String(meta[0]?.env?.CLAUDE_CONFIG_DIR ?? "");
+    expect(remoteConfigDir).toContain(".paperclip-runtime");
+    await expect(fs.readFile(path.join(remoteConfigDir, "skills", "review", "SKILL.md"), "utf8"))
+      .resolves.toContain("review skill");
+  });
+
   it("stages the skill bundle as a no-follow-symlinks asset for a remote ACP run, and points the prompt at the in-sandbox skill root", async () => {
     vi.mocked(prepareAdapterExecutionTargetRuntime).mockClear();
     const root = await makeTempRoot("paperclip-claude-acp-skills-remote-");
