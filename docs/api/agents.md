@@ -135,9 +135,14 @@ Content-Type: application/json
 { "reason": "Follow up on this issue", "payload": { "issueId": "{issueId}" } }
 ```
 
-Issue context belongs in `payload.issueId`. A top-level `issueId` returns `400`
-with `Use payload.issueId to target an issue.` rather than silently creating a
-run without that context. Normal wakeup authorization and scheduling still apply.
+`issueId` is also accepted at the top level as a UUID alias for `payload.issueId`,
+so `{ "issueId": "{issueId}", "reason": "Follow up" }` carries the same issue
+context. If both fields are present, they must be equal; different values return
+`400` with `issueId conflicts with payload.issueId`. Other payload fields (such
+as `commentId`) and `idempotencyKey` are preserved. Requests with neither field
+are unchanged. Both forms use the same company scope, wakeup authorization and
+scheduling. An exact `failedRunId` retry still derives its execution context from
+the failed run, rather than caller-supplied issue or comment markers.
 
 ## Org Chart
 

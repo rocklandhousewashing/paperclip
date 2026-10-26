@@ -252,6 +252,8 @@ describe("openapi routes", () => {
       wake.requestBody.content["application/json"].schema.properties
         .failedRunId,
     ).toMatchObject({ type: "string", format: "uuid" });
+    expect(wake.requestBody.content["application/json"].schema.properties.issueId)
+      .toMatchObject({ type: "string", format: "uuid" });
     expect(wake.responses["202"]).toBeDefined();
     expect(wake.responses["409"]).toBeDefined();
     expect(wake.description).toContain("durable queued/deferred receipt");

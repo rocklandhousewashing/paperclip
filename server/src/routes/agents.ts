@@ -5889,6 +5889,14 @@ export function agentRoutes(
   };
 
   router.post("/agents/:id/wakeup", validate(wakeAgentSchema), async (req, res) => {
+    if (req.body.issueId !== undefined) {
+      if (req.body.payload?.issueId !== undefined && req.body.payload.issueId !== req.body.issueId) {
+        throw badRequest("issueId conflicts with payload.issueId");
+      }
+      // Keep legacy callers on the same authorization and scheduling path as
+      // payload callers, including skipped wakes and server-derived retries.
+      req.body.payload = { ...req.body.payload, issueId: req.body.issueId };
+    }
     await handleWakeupRoute(req, res, {
       source: req.body.source,
       skippedResponse: (agent, payload) => buildSkippedWakeupResponse(agent, payload),
