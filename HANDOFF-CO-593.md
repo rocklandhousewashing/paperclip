@@ -1,3 +1,5 @@
+> **Renamed to PC-457 (Oct 26, operator).** "CO-593" collided with a different, already-merged jarvis-system change order (paper-desk test cleanup). This Paperclip package change is **PC-457**. Branch: `fix/pc-457-tool-gateway-skills`. Worktree: `/home/ubuntu/jarvis-change-orders/codex-pc-457-paperclip-tool-gateway`.
+
 # CO-593 handoff — remote MCP reliability and managed Claude skills
 
 Status: implemented and committed locally; compiled candidate prepared. **Not installed or released.**
