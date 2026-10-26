@@ -151,8 +151,8 @@
      reason: z.string().optional().nullable(),
      /** Select an exact failed run; its chat request and actor are server-derived. */
      failedRunId: z.string().uuid().optional(),
-+    // A top-level issueId would otherwise be silently stripped by Zod.
-+    issueId: z.never({ error: "Use payload.issueId to target an issue." }).optional(),
++    // Compatibility alias; the wakeup route merges it into payload.issueId.
++    issueId: z.string().uuid().optional(),
      payload: z.record(z.string(), z.unknown()).optional().nullable(),
      idempotencyKey: z.string().optional().nullable(),
      forceFreshSession: z.preprocess((value) => (value === null ? undefined : value), z.boolean().optional().default(false)),
@@ -162,7 +162,7 @@
      }>>;
      reason: z.ZodNullable<z.ZodOptional<z.ZodString>>;
      failedRunId: z.ZodOptional<z.ZodString>;
-+    issueId: z.ZodOptional<z.ZodNever>;
++    issueId: z.ZodOptional<z.ZodString>;
      payload: z.ZodNullable<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>>;
      idempotencyKey: z.ZodNullable<z.ZodOptional<z.ZodString>>;
      forceFreshSession: z.ZodPreprocess<z.ZodDefault<z.ZodOptional<z.ZodBoolean>>>;
@@ -189,6 +189,23 @@
  export const toolRedactedValueSummarySchema = z.object({
      summary: z.string().max(4000),
      sizeBytes: z.number().int().min(0).optional().nullable(),
+--- installed/@paperclipai/server/dist/routes/agents.js
++++ candidate/@paperclipai/server/dist/routes/agents.js
+@@ -4759,6 +4759,14 @@
+         res.status(202).json(run);
+     };
+     router.post("/agents/:id/wakeup", validate(wakeAgentSchema), async (req, res) => {
++        if (req.body.issueId !== undefined) {
++            if (req.body.payload?.issueId !== undefined && req.body.payload.issueId !== req.body.issueId) {
++                throw badRequest("issueId conflicts with payload.issueId");
++            }
++            // Keep legacy callers on the same authorization and scheduling path as
++            // payload callers, including skipped wakes and server-derived retries.
++            req.body.payload = { ...req.body.payload, issueId: req.body.issueId };
++        }
+         await handleWakeupRoute(req, res, {
+             source: req.body.source,
+             skippedResponse: (agent, payload) => buildSkippedWakeupResponse(agent, payload),
 --- installed/@paperclipai/server/dist/routes/connection-intents.js
 +++ candidate/@paperclipai/server/dist/routes/connection-intents.js
 @@ -8,6 +8,7 @@

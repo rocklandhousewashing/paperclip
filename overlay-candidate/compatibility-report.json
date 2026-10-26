@@ -1,9 +1,9 @@
 {
   "status": "pass",
-  "sourceChild": "7b9e38b6326149596679cabc12bbf862bf294bb6",
-  "files": 48,
-  "syntaxCheckedModules": 12,
-  "resolvedImports": 241,
+  "sourceChild": "30694c2047e5d68120466de9d1f99c179493713f",
+  "files": 52,
+  "syntaxCheckedModules": 13,
+  "resolvedImports": 317,
   "newBindings": [
     {
       "from": "@paperclipai/adapter-claude-local/dist/server/execute.js",
@@ -60,6 +60,12 @@
       "addedExports": [
         "materializeManagedClaudeUserSkills"
       ],
+      "removedExports": []
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/agents.d.ts",
+      "byteIdentical": true,
+      "addedExports": [],
       "removedExports": []
     },
     {
@@ -153,6 +159,18 @@
     },
     {
       "path": "@paperclipai/adapter-utils/dist/server-utils.js.map",
+      "changedKeys": [
+        "mappings"
+      ]
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/agents.d.ts.map",
+      "changedKeys": [
+        "mappings"
+      ]
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/agents.js.map",
       "changedKeys": [
         "mappings"
       ]
@@ -481,6 +499,462 @@
       "from": "@paperclipai/adapter-utils/dist/server-utils.js",
       "specifier": "./paperclip-runner-permissions.js",
       "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-utils/dist/paperclip-runner-permissions.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/openrouter-models.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/openrouter-models.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/ai-connection-runtime.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/ai-connection-runtime.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/shared",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/shared/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/db",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/db/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/ai-connections.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/ai-connections.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/agent-ai-connection-default.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/agent-ai-connection-default.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "./ai-connections.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/routes/ai-connections.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/shared",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/shared/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/connector-runtime.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/connector-runtime.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/execution-blocker.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/execution-blocker.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-utils",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-utils/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/execution-projection.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/execution-projection.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "express",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/node_modules/express/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/db",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/db/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "drizzle-orm",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/drizzle-orm/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/feedback-redaction.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/feedback-redaction.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/shared",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/shared/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-utils/server-utils",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-utils/dist/server-utils.js",
+      "candidate": true
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/shared/telemetry",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/shared/dist/telemetry/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../middleware/validate.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/middleware/validate.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/agent-instructions.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/agent-instructions.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/index.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../errors.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/errors.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/company-skills.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/company-skills.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/run-secret-redaction.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/run-secret-redaction.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "./authz.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/routes/authz.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "./adapter-login-route-spine.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/routes/adapter-login-route-spine.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/login-command.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/login-command.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "./workspace-command-authz.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/routes/workspace-command-authz.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/environments.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/environments.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/environment-execution-target.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/environment-execution-target.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/environment-runtime.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/environment-runtime.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/plugin-environment-driver.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/plugin-environment-driver.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-codex-local/server",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-codex-local/dist/server/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/adapter-plugin-store.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/adapter-plugin-store.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/runtime-skill-selections.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/runtime-skill-selections.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/secrets.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/secrets.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/authorization.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/authorization.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/provider-trace-store.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/provider-trace-store.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/provider-trace-workspace-diff-reprojection.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/provider-trace-workspace-diff-reprojection.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../adapters/index.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/adapters/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../redaction.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/redaction.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../log-redaction.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/log-redaction.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../vendor/paperclip-runner/index.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/vendor/paperclip-runner/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../realtime/runner-prp-ws.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/realtime/runner-prp-ws.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/native-runtime/runtime-request-resolution-authority.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/native-runtime/runtime-request-resolution-authority.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/native-runtime/native-session-executor.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/native-runtime/native-session-executor.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "./org-chart-svg.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/routes/org-chart-svg.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/instance-settings.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/instance-settings.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-claude-local/server",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-claude-local/dist/server/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/invite-rate-limit.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/invite-rate-limit.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/setup-token-session.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/setup-token-session.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/shared",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/shared/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-codex-local",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-codex-local/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-codex-local/server",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-codex-local/dist/server/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-grok-local/server",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-grok-local/dist/server/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/device-login-service.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/device-login-service.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-cursor-local",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-cursor-local/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-gemini-local",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-gemini-local/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-kimi-local",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-kimi-local/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-opencode-local",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-opencode-local/dist/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "@paperclipai/adapter-opencode-local/server",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/adapter-opencode-local/dist/server/index.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/default-agent-instructions.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/default-agent-instructions.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/onboarding-first-task-assets.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/onboarding-first-task-assets.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../telemetry.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/telemetry.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "./environment-selection.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/routes/environment-selection.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/recovery/service.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/recovery/service.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/trust-preset-resolver.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/trust-preset-resolver.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../lib/objects.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/lib/objects.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/agent-invokability.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/agent-invokability.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../middleware/logger.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/middleware/logger.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/change-consent-gate.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/change-consent-gate.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/native-runtime/provider-profile.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/native-runtime/provider-profile.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/managed-agent-profiles.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/managed-agent-profiles.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/remote-agent-profiles.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/remote-agent-profiles.js",
+      "candidate": false
+    },
+    {
+      "from": "@paperclipai/server/dist/routes/agents.js",
+      "specifier": "../services/run-identity.js",
+      "resolved": "/home/ubuntu/paperclip/lib/node_modules/@paperclipai/server/dist/services/run-identity.js",
       "candidate": false
     },
     {

@@ -46,7 +46,7 @@ const existingPrefixes = JSON.parse(verifierText.match(/const ENTRY_PREFIXES = (
 const packages = [...new Set(modules.map(({ prefix }) => prefix.split("/").slice(0, 2).join("/")))].sort();
 const manifest = {
   schema_version: 1,
-  purpose: "CO-593 review candidate; not a deployable manifest for the existing fixed-closure verifier",
+  purpose: "PC-457 r2 review candidate; not a deployable manifest for the existing fixed-closure verifier",
   source_parent_sha: parent,
   source_child_sha: child,
   pnpm_lock_sha256: sha(fs.readFileSync(path.join(repo, "pnpm-lock.yaml"))),

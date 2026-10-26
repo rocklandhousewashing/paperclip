@@ -1,31 +1,66 @@
 > **Renamed to PC-457 (Oct 26, operator).** "CO-593" collided with a different, already-merged jarvis-system change order (paper-desk test cleanup). This Paperclip package change is **PC-457**. Branch: `fix/pc-457-tool-gateway-skills`. Worktree: `/home/ubuntu/jarvis-change-orders/codex-pc-457-paperclip-tool-gateway`.
 
-# CO-593 handoff — remote MCP reliability and managed Claude skills
+# PC-457 handoff — remote MCP reliability and managed Claude skills
 
 Status: implemented and committed locally; compiled candidate prepared. **Not installed or released.**
 
 ## Source and boundaries
 
-- Branch: `fix/co-593-tool-gateway-skills`.
+- Branch: `fix/pc-457-tool-gateway-skills`.
 - Required source parent: `2828f1a0507d5ba8e05287fa0693c81a676313c8`.
-- Runtime source child: `7b9e38b6326149596679cabc12bbf862bf294bb6`.
-- Logical commits: `d400ce90b` (MCP result/timeout/assignment fixes), `e907654be` (Claude skills), `7b9e38b63` (wakeup validation). The later handoff/artifact commit does not change runtime sources.
+- Runtime source child (r2): `30694c2047e5d68120466de9d1f99c179493713f`.
+- Logical commits: `d400ce90b` (MCP result/timeout/assignment fixes), `e907654be` (Claude skills), `7b9e38b63` (r1 wakeup rejection, superseded), `30694c204` (r2 compatible wakeup mapping). The later handoff/artifact commit does not change runtime sources.
 - No writes to the live Paperclip install, service, database, other worktrees, or jarvis-system. Installed files and the existing overlay/verifier were read only for the requested comparison. No pushes, deployments, restarts, provider calls, dependency upgrades, lockfile edits, or migrations.
-- Dependencies installed using `pnpm install --offline --frozen-lockfile`, exit **0**, downloaded **0**. An initial install used the shell's Node 20; the same frozen offline install was repeated successfully under Node **24.21.0**. Tests, final typechecks and compilation use Node 24.21.0, pnpm **9.15.4**, TypeScript **7.0.2**.
+- r1 dependencies were installed using `pnpm install --offline --frozen-lockfile`, exit **0**, downloaded **0**. An initial install used the shell's Node 20; the same frozen offline install was repeated successfully under Node **24.21.0**. r2 reused those offline dependencies. Tests, final typechecks and compilation use Node 24.21.0, pnpm **9.15.4**, TypeScript **7.0.2**.
 - The task's explicit live-system prohibition overrides the normal shared-work checkpoint workflow. This handoff and artifacts are **not published to Paperclip**. The release operator must attach them to the existing work record; this session did not create another issue or claim shared-state publication.
+
+## r2 — compatible wakeups (2026-10-26)
+
+- **Implemented:** top-level UUID issueId maps to payload.issueId; equal IDs are accepted; conflicting IDs return the specified 400; neither field keeps existing behavior. Both caller shapes are covered. Existing payload-only validation is preserved, rather than narrowing its generic record contract.
+- **Focused verification:** **14 files / 344 tests passed**, exit **0**, **171.63s**. This is the original 318 set plus 26 net regressions. The six real-queue tests prove stored issueId/taskId/taskKey, owner-room comment context and idempotencyKey, and same-company enforcement. They occupy the only adapter slot so real admission is tested without dispatching an adapter. Unit tests also cover invalid alias UUIDs, conflicts, unscoped requests, other payload fields, actor authorization, comment-marker stripping and failed-run context authority.
+- **Four package typechecks:** `shared`, `adapter-utils`, `adapter-claude-local`, `server`; each `pnpm --filter @paperclipai/<package> exec tsc --noEmit` exited **0**, with no diagnostics. All four direct TypeScript compilations (`exec tsc -p tsconfig.json`) also exited **0**.
+- **Rebuilt overlay:** **13 modules / 52 files**, bound to `30694c2047e5d68120466de9d1f99c179493713f`. Added `@paperclipai/server/dist/routes/agents` to the candidate and verifier-prefix additions. Static verification passed: **317 imports resolved**, **7 new named bindings verified**, **13 JS syntax checks**, **52 hashes/modes**, no removed named exports, **9 identical declarations**, and **26 maps** with changes limited to mappings. The other 11 modules (44 files) are byte-identical to r1 and installed comparison hashes are unchanged. The complete release overlay would contain **21 modules / 84 files**; this candidate alone is not that full closure.
+- **Evidence:** `overlay-candidate/evidence/r2-results.json`; exact reproduction below. Initial route-test expectations for cross-company status were corrected from 403 to the existing 404; final selection passes. Existing r1 broad-suite/build limitations are retained below and were not re-run or declared resolved.
+- **Boundary / next owner:** source and artifacts are local commits only. No live install, service, database, jarvis-system or caller-script writes; no push, restart, deployment or real provider calls. This handoff is **not published to Paperclip**. The release operator must attach it to the existing PC-457 record, review the complete candidate, then follow the existing release/acceptance gates. Both the validator and route modules must be installed together.
+
+Exact r2 focused command (Node 24.21.0 on PATH):
+
+```sh
+bwrap --unshare-net --ro-bind / / --bind "$PWD" "$PWD" --bind /tmp /tmp \
+  --dev-bind /dev /dev --proc /proc -- \
+  env -u DATABASE_URL -u DATABASE_MIGRATION_URL \
+  PAPERCLIP_HOME=/tmp/pc457-r2-final-home \
+  PAPERCLIP_CONFIG=/tmp/pc457-r2-final-home/config.json \
+  PAPERCLIP_INSTANCE_ID=pc457-r2-final \
+  pnpm exec vitest run \
+  server/src/__tests__/tool-gateway.test.ts \
+  server/src/__tests__/tool-gateway-service.test.ts \
+  server/src/__tests__/mcp-tool-result.test.ts \
+  server/src/__tests__/heartbeat-runtime-mcp-servers.test.ts \
+  server/src/services/native-runtime/runtime-context.test.ts \
+  server/src/routes/connection-intents.test.ts \
+  server/src/__tests__/chat-project-tools.test.ts \
+  server/src/__tests__/claude-local-execute.test.ts \
+  packages/adapters/claude-local/src/server/acp.test.ts \
+  packages/shared/src/validators/tool-access.test.ts \
+  packages/shared/src/validators/agent.test.ts \
+  server/src/__tests__/agent-permissions-routes.test.ts \
+  server/src/__tests__/openapi-routes.test.ts \
+  server/src/__tests__/agent-wakeup-issue-context.test.ts
+```
 
 ## Root causes and fixes
 
 1. **Malformed MCP results.** At the parent, `server/src/services/tool-gateway.ts:5726` synthesized `structuredContent: null`; `server/src/routes/tool-gateway.ts:186` also emitted a nullable wrapper and always set `isError: false`. Runtime-tools (`routes/connection-intents.ts`) and project tools serialized arbitrary values as structured content. The shared serializer now accepts only plain objects (`server/src/services/mcp-http.ts:171`); remote normalization uses it (`services/tool-gateway.ts:5732`), and all three route surfaces use it. Gateway text wrapping remains compatible, including the existing Google permission guidance; provider `isError` is preserved (`routes/tool-gateway.ts:185`). Tests validate actual serialized JSON against the MCP CallToolResult fields exercised by the fixtures (text/image and optional object structuredContent), including missing, null, scalar, array, valid object and readable error text. No new MCP SDK dependency was added.
 2. **Short timeouts and disappearing tools.** The gateway normalized caller timeouts before reading connection configuration, defaulting to 10s and clamping at 60s. It also selected tools only from healthy connections; heartbeat and native-runtime setup repeated health filters. `remoteToolTimeoutMs` (`services/tool-gateway.ts:652`) now reads transportConfig first, then legacy config, bounds configured values to 1,000–120,000ms, and honors a smaller caller timeout. The PATCH schema validates integers in that range (`packages/shared/src/validators/tool-access.ts:148`). Unconfigured connections keep the 10s default and existing caller override up to 60s. Approved actions retain their existing 60s budget. Health remains observable, but no longer grants/revokes access (`services/tool-gateway.ts:1216`, `services/heartbeat.ts:4532` and `:4993`, `services/native-runtime/runtime-context.ts:199`). Active/enabled status, assigned profiles, quarantines, company identity and credential grants still apply. Tests cover the actual abort timer and clamp behavior, timeout/transport failure followed by a successful same-session call, discovery in a later run, native/Claude assignment retention, disabled-connection exclusion and health recovery to `ok`.
 3. **Company skills hidden by user-only Claude settings.** Parent CLI preparation put skills in the prompt bundle's project scope, while managed connections passed `--setting-sources user`. Sources could be outside the sandbox mounts. Selected mountable skills are now copied into the private run's `CLAUDE_CONFIG_DIR/skills/<runtimeName>/` (`packages/adapters/claude-local/src/server/execute.ts:555`, shared helper at `packages/adapter-utils/src/server-utils.ts:4497`). The helper excludes symlinks and rejects invalid runtime names/symlink skills homes. Copied files have no write bits; confined CLI runs mount the entire skills subtree read-only after mounting the auth/config home writable (`execute.ts:594`). The equivalent ACP preparation runs before local startup/remote config staging (`packages/adapter-utils/src/acpx-engine/execute.ts:1150`). `--setting-sources user` remains at `execute.ts:903`; project settings are not enabled. Tests inspect selected SKILL.md files, omitted unselected skills/nested symlinks, exact setting scope and sandbox mount order, plus local/remote ACP staging.
-4. **Optional wakeup fix.** The existing schema silently stripped top-level issueId. It now rejects it with `400` and `Use payload.issueId to target an issue.` (`packages/shared/src/validators/agent.ts:225`; existing route validation at `server/src/routes/agents.ts:5891`). Use `{ "reason": "Follow up", "payload": { "issueId": "<issue UUID>" } }`. Existing authorization and scheduling semantics remain. Schema, route and OpenAPI regressions pass.
+4. **Compatible wakeup issue context (r2).** The parent silently stripped top-level issueId; the first revision rejected it, breaking existing owner-room and bridge callers. The validator now accepts an optional UUID (`packages/shared/src/validators/agent.ts:225`). The wakeup route merges it into `payload.issueId`, preserving other payload fields, reason and idempotencyKey; different supplied IDs return `400` with `issueId conflicts with payload.issueId` (`server/src/routes/agents.ts:5892`). Matching IDs and requests without the alias retain the existing path. The payload-only contract is unchanged. Existing actor authorization, company-scoped issue lookup, scheduling, agent comment-marker stripping and server-derived failed-run context still apply. The real queue tests verify issue/task context and reject cross-company scheduling; these are offline admissions, not live caller deliveries.
 
-## Verification
+## r1 verification (historical; r2 results are recorded above)
 
-The final committed-source focused run passed **13 files / 318 tests**, exit **0**, in **237.61s**. All remote transport/provider responses in these suites were mocks or loopback fixtures; the final run also used a Bubblewrap network namespace, read-only host filesystem and disposable Paperclip state under `/tmp`.
+The r1 committed-source focused run passed **13 files / 318 tests**, exit **0**, in **237.61s**. All remote transport/provider responses in these suites were mocks or loopback fixtures; the final run also used a Bubblewrap network namespace, read-only host filesystem and disposable Paperclip state under `/tmp`.
 
-Exact final focused command (after adding the Node 24 bin directory to PATH):
+Exact r1 focused command (after adding the Node 24 bin directory to PATH):
 
 ```sh
 bwrap --unshare-net --ro-bind / / --bind "$PWD" "$PWD" --bind /tmp /tmp \
@@ -118,7 +153,8 @@ Every JavaScript difference from installed 2026.916.1 plus overlay is explained 
 | `@paperclipai/adapter-utils/dist/acpx-engine/execute` | Copies selected managed Claude skills to user scope before ACP startup/config staging. |
 | `@paperclipai/adapter-utils/dist/server-utils` | Adds contained skill-copy helper, rejects invalid names/symlink homes, checks SKILL.md, removes file write bits. |
 | `@paperclipai/adapter-claude-local/dist/server/execute` | Invokes the copy helper and adds the nested read-only skills mount; user-only setting sources remain unchanged. |
-| `@paperclipai/shared/dist/validators/agent` | Rejects top-level wakeup issueId with guidance to use payload.issueId. |
+| `@paperclipai/shared/dist/validators/agent` | Accepts optional UUID issueId for the backward-compatible alias; no change to payload-only requests. |
+| `@paperclipai/server/dist/routes/agents` | Merges top-level issueId into payload before existing handling; mismatched IDs return 400. |
 | `@paperclipai/shared/dist/validators/tool-access` | Validates optional integer toolTimeoutMs while retaining existing sensitive-config checks. |
 | `@paperclipai/server/dist/routes/connection-intents` | Uses the safe structured-content/text result helper for runtime-tools responses. |
 | `@paperclipai/server/dist/routes/project-tools` | Uses the same helper for project-tool responses; existing error text behavior remains. |
@@ -128,7 +164,7 @@ Every JavaScript difference from installed 2026.916.1 plus overlay is explained 
 | `@paperclipai/server/dist/services/native-runtime/runtime-context` | Keeps the permitted active connection/tool snapshot after unhealthy last-call status. |
 | `@paperclipai/server/dist/services/tool-gateway` | Removes the health catalog filter, normalizes optional structuredContent, resolves per-connection call budgets, passes raw caller budgets. |
 
-Of 12 declaration files, **8 are byte-identical**. The other four are: `server-utils` adds only the new helper; `mcp-http` adds only two helpers; `validators/agent` adds the intentionally forbidden optional top-level issueId (`ZodOptional<ZodNever>`) without changing supported payloads; `tool-gateway` only reorders `error?: undefined` in one union branch. Existing callable signatures and named exports are preserved. All **24 map files** change only their `mappings` field; `sources`, `file`, `names`, `sourceRoot` and format are unchanged.
+Of 13 declaration files, **9 are byte-identical** (including `routes/agents`). The other four are: `server-utils` adds only the new helper; `mcp-http` adds only two helpers; `validators/agent` adds optional UUID top-level issueId (`ZodOptional<ZodString>`) without changing the payload-only contract; `tool-gateway` only reorders `error?: undefined` in one union branch. Existing callable signatures and named exports are preserved. Across all **26 map files**, changes are limited to the `mappings` field; `sources`, `file`, `names`, `sourceRoot` and format are unchanged.
 
 Static compatibility checks read the installed package manifests (all **2026.916.1**) and resolve imports as if each candidate occupied its installed location. They verify every new named import against the candidate/installed export closure. They do not load the installed server, open its database, execute Claude, or call a provider. Production startup and actual CLI discovery are still acceptance gates.
 
@@ -137,6 +173,7 @@ Exact new `ENTRY_PREFIXES` additions to the existing verifier:
 ```js
   "@paperclipai/adapter-utils/dist/acpx-engine/execute",
   "@paperclipai/adapter-utils/dist/server-utils",
+  "@paperclipai/server/dist/routes/agents",
   "@paperclipai/server/dist/routes/connection-intents",
   "@paperclipai/server/dist/routes/project-tools",
   "@paperclipai/server/dist/routes/tool-gateway",
@@ -147,7 +184,7 @@ Exact new `ENTRY_PREFIXES` additions to the existing verifier:
   "@paperclipai/shared/dist/validators/tool-access",
 ```
 
-`@paperclipai/server/dist/services/heartbeat` and `@paperclipai/adapter-claude-local/dist/server/execute` are already present and must receive the new bytes. Add `@paperclipai/shared/package.json` to the verifier's affected-package anchors. Keep the existing Codex and other repair modules: merging the current 10-module overlay with these 10 new prefixes produces **20 modules / 80 files**, of which this candidate supplies 48. Do not replace the old overlay tree with only this candidate. The current verifier's fixed SHA/archive, key schema and 40-file closure intentionally reject this draft; updating those belongs to the release change order.
+`@paperclipai/server/dist/services/heartbeat` and `@paperclipai/adapter-claude-local/dist/server/execute` are already present and must receive the new bytes. Add `@paperclipai/shared/package.json` to the verifier's affected-package anchors. Keep the existing Codex and other repair modules: merging the current 10-module overlay with these 11 new prefixes produces **21 modules / 84 files**, of which this candidate supplies 52. Do not replace the old overlay tree with only this candidate. The current verifier's fixed SHA/archive, key schema and 40-file closure intentionally reject this draft; updating those belongs to the release change order.
 
 Exact candidate file list (all paths under `overlay-candidate/tree/`; all mode `0644`):
 
@@ -164,6 +201,10 @@ Exact candidate file list (all paths under `overlay-candidate/tree/`; all mode `
 @paperclipai/adapter-utils/dist/server-utils.d.ts.map
 @paperclipai/adapter-utils/dist/server-utils.js
 @paperclipai/adapter-utils/dist/server-utils.js.map
+@paperclipai/server/dist/routes/agents.d.ts
+@paperclipai/server/dist/routes/agents.d.ts.map
+@paperclipai/server/dist/routes/agents.js
+@paperclipai/server/dist/routes/agents.js.map
 @paperclipai/server/dist/routes/connection-intents.d.ts
 @paperclipai/server/dist/routes/connection-intents.d.ts.map
 @paperclipai/server/dist/routes/connection-intents.js
@@ -213,8 +254,8 @@ Exact candidate file list (all paths under `overlay-candidate/tree/`; all mode `
 
 ## Operator release steps — not performed
 
-1. Open the jarvis-system release change order tied to this source child and the existing Paperclip work record. Independently review the source commits, tests, this diff and the 48 candidate hashes. Preserve existing installed repair behavior and package version metadata. Reproduce the candidate with the trusted toolchain; verify offline dependency availability and schema parity (no migration in CO-593).
-2. Extend the repo-owned overlay verifier's exact prefixes/anchors and manifest/provenance rules through that change order. Compose the complete 80-file closure, binding current installed before hashes and candidate/retained after hashes, modes, source archive and lockfile/toolchain digests. Update associated exact-closure tests and rollback artifacts. Do not hand-copy files around the governed receiver.
+1. Open the jarvis-system release change order tied to this source child and the existing Paperclip work record. Independently review the source commits, tests, this diff and the 52 candidate hashes. Preserve existing installed repair behavior and package version metadata. Reproduce the candidate with the trusted toolchain; verify offline dependency availability and schema parity (no migration in PC-457).
+2. Extend the repo-owned overlay verifier's exact prefixes/anchors and manifest/provenance rules through that change order. Compose the complete 84-file closure, binding current installed before hashes and candidate/retained after hashes, modes, source archive and lockfile/toolchain digests. Update associated exact-closure tests and rollback artifacts. Do not hand-copy files around the governed receiver.
 3. Obtain trusted-verifier review and the normal release gates. Resolve or explicitly assess the documented broad-suite/build limitations. Run the before-state overlay validation read-only against the exact live package baseline; drift invalidates this candidate comparison.
 4. Create the normal owner release card, naming the actual effects, no migrations, brief Paperclip restart/downtime, exact artifact identity and rollback. Use the governed releases channel/card workflow. This task is not deployment approval, and no approval card was sent here.
 5. Wait for an idle-run window; verify no agent runs, approved tool executions or credential refresh writebacks are active. Under the approved release plan, stop Paperclip, apply the verified overlay through the normal receiver, and restart Paperclip once. Verify the complete after-state hashes and service health. A failed application stays failed pending governed recovery; do not restore stale proof.
@@ -227,6 +268,6 @@ Exact candidate file list (all paths under `overlay-candidate/tree/`; all mode `
 - A controlled `generate-image` error returns readable provider text and `isError: true`, with absent/invalid structuredContent omitted. No Claude malformed-result error appears. Choose a no-spend validation error or obtain separate authorization for any charged generation.
 - Fresh managed Whip seats' Claude `init` events list the desired `whip-*` company skills. Confirm settings remain user-only and the sandbox can read SKILL.md.
 - After a controlled timeout or transport failure, the same run still lists/finds its assigned tools; a later run retains them; a subsequent successful call restores health to `ok`. Confirm disabled connections and denied/quarantined tools remain unavailable.
-- If exercised, top-level wakeup issueId returns 400 and payload.issueId creates the intended issue context.
+- Exercise both existing caller shapes: `{issueId, reason}` and `{issueId, reason, idempotencyKey, payload: {issueId, commentId}}`. Verify the resulting run carries the intended issue context, and the owner-room form retains comment context. Matching IDs must succeed; different IDs must return 400. This live caller acceptance remains pending.
 
 Next owner: the authorized release operator (Claude/operator lane). All installed/provider acceptance remains pending.

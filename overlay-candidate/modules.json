@@ -25,6 +25,11 @@
     "prefix": "@paperclipai/shared/dist/validators/tool-access"
   },
   {
+    "source": "server/src/routes/agents.ts",
+    "output": "server/dist/routes/agents",
+    "prefix": "@paperclipai/server/dist/routes/agents"
+  },
+  {
     "source": "server/src/routes/connection-intents.ts",
     "output": "server/dist/routes/connection-intents",
     "prefix": "@paperclipai/server/dist/routes/connection-intents"

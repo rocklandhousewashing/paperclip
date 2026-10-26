@@ -689,7 +689,7 @@ export declare const wakeAgentSchema: z.ZodObject<{
     }>>;
     reason: z.ZodNullable<z.ZodOptional<z.ZodString>>;
     failedRunId: z.ZodOptional<z.ZodString>;
-    issueId: z.ZodOptional<z.ZodNever>;
+    issueId: z.ZodOptional<z.ZodString>;
     payload: z.ZodNullable<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>>;
     idempotencyKey: z.ZodNullable<z.ZodOptional<z.ZodString>>;
     forceFreshSession: z.ZodPreprocess<z.ZodDefault<z.ZodOptional<z.ZodBoolean>>>;

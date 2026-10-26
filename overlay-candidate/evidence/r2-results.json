@@ -1,0 +1,107 @@
+{
+  "task": "PC-457 r2",
+  "source_child_sha": "30694c2047e5d68120466de9d1f99c179493713f",
+  "toolchain": {
+    "node": "v24.21.0",
+    "node_sha256": "7fde7b8afa198da66257f42ee2001d874c7355631e6d1579a5fb5ef1f246df4c",
+    "pnpm": "9.15.4",
+    "typescript": "7.0.2"
+  },
+  "focused": {
+    "exit_code": 0,
+    "files_passed": 14,
+    "tests_passed": 344,
+    "duration_seconds": 171.63,
+    "selection": "Original 13-file / 318-test set plus r2 regressions, including agent-wakeup-issue-context.test.ts",
+    "raw_log": "/tmp/pc457-r2-focused.log",
+    "raw_log_sha256": "a29d87e6ae92e5788795a7923f1f566fc085a66a79f482d33e60fec31cf09cfc"
+  },
+  "typechecks": [
+    {
+      "package": "@paperclipai/shared",
+      "command": "pnpm --filter @paperclipai/shared exec tsc --noEmit",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "package": "@paperclipai/adapter-utils",
+      "command": "pnpm --filter @paperclipai/adapter-utils exec tsc --noEmit",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "package": "@paperclipai/adapter-claude-local",
+      "command": "pnpm --filter @paperclipai/adapter-claude-local exec tsc --noEmit",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "package": "@paperclipai/server",
+      "command": "pnpm --filter @paperclipai/server exec tsc --noEmit",
+      "exit_code": 0,
+      "diagnostics": ""
+    }
+  ],
+  "compilation": [
+    {
+      "package": "@paperclipai/shared",
+      "command": "pnpm --filter @paperclipai/shared exec tsc -p tsconfig.json",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "package": "@paperclipai/adapter-utils",
+      "command": "pnpm --filter @paperclipai/adapter-utils exec tsc -p tsconfig.json",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "package": "@paperclipai/adapter-claude-local",
+      "command": "pnpm --filter @paperclipai/adapter-claude-local exec tsc -p tsconfig.json",
+      "exit_code": 0,
+      "diagnostics": ""
+    },
+    {
+      "package": "@paperclipai/server",
+      "command": "pnpm --filter @paperclipai/server exec tsc -p tsconfig.json",
+      "exit_code": 0,
+      "diagnostics": ""
+    }
+  ],
+  "candidate": {
+    "assembly_exit_code": 0,
+    "verification_exit_code": 0,
+    "files": 52,
+    "modules": 13,
+    "resolved_imports": 317,
+    "new_named_bindings": 7,
+    "byte_identical_declarations": 9,
+    "source_maps": 26,
+    "unchanged_r1_module_files": 44,
+    "installed_baseline_unchanged": true
+  },
+  "limits": [
+    "Offline mocked/loopback providers and disposable embedded PostgreSQL only; Bubblewrap network isolation and read-only host filesystem.",
+    "Queued-run admission was tested with the only adapter slot occupied; no real provider or deployed caller was exercised.",
+    "No new full-workspace or broad-package rerun; r1 limitations remain historical and unresolved by this bounded revision.",
+    "Handoff saved locally only; live Paperclip publication is outside task authorization."
+  ],
+  "initial_attempts": [
+    {
+      "scope": "schema, permissions routes and OpenAPI",
+      "exit_code": 1,
+      "files_passed": 2,
+      "files_failed": 1,
+      "tests_passed": 92,
+      "tests_failed": 2,
+      "cause": "New tests expected 403 for cross-company access; existing route correctly masks inaccessible agents as 404. Test expectations corrected; final full selection passes."
+    },
+    {
+      "scope": "real-queue integration in isolation",
+      "exit_code": 0,
+      "files_passed": 1,
+      "tests_passed": 6,
+      "duration_seconds": 44.76
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "purpose": "CO-593 review candidate; not a deployable manifest for the existing fixed-closure verifier",
+  "purpose": "PC-457 r2 review candidate; not a deployable manifest for the existing fixed-closure verifier",
   "source_parent_sha": "2828f1a0507d5ba8e05287fa0693c81a676313c8",
-  "source_child_sha": "7b9e38b6326149596679cabc12bbf862bf294bb6",
+  "source_child_sha": "30694c2047e5d68120466de9d1f99c179493713f",
   "pnpm_lock_sha256": "af3b879fea127a608b0f9279627f357638299441bbf41835f0b91ab0162e441c",
   "toolchain": {
     "node": "v24.21.0",
@@ -37,6 +37,11 @@
       "source": "packages/shared/src/validators/tool-access.ts",
       "output": "packages/shared/dist/validators/tool-access",
       "prefix": "@paperclipai/shared/dist/validators/tool-access"
+    },
+    {
+      "source": "server/src/routes/agents.ts",
+      "output": "server/dist/routes/agents",
+      "prefix": "@paperclipai/server/dist/routes/agents"
     },
     {
       "source": "server/src/routes/connection-intents.ts",
@@ -77,6 +82,7 @@
   "entry_prefix_additions": [
     "@paperclipai/adapter-utils/dist/acpx-engine/execute",
     "@paperclipai/adapter-utils/dist/server-utils",
+    "@paperclipai/server/dist/routes/agents",
     "@paperclipai/server/dist/routes/connection-intents",
     "@paperclipai/server/dist/routes/project-tools",
     "@paperclipai/server/dist/routes/tool-gateway",
@@ -180,6 +186,38 @@
       "sha256": "23dc717d63e145eee32a0c9e427ae744bc3cc838c5c139f906fb9b2fa7368520",
       "installed_sha256": "e04733ec7509b7272d2021eedf835d8f935cf1a427e1175a1a5b5d3a92707568",
       "bytes": 127140,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/agents.d.ts",
+      "sha256": "9f4d4b564ce06a04080af0376dcf9df9d8eb2a2dcd231b0e9d483d54772e60d3",
+      "installed_sha256": "9f4d4b564ce06a04080af0376dcf9df9d8eb2a2dcd231b0e9d483d54772e60d3",
+      "bytes": 2785,
+      "mode": "0644",
+      "changed": false
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/agents.d.ts.map",
+      "sha256": "3526fa6c79f785d6e149cd10a5732b6f66dcba1980c642d86d7b892bdcf1d3cc",
+      "installed_sha256": "69ed8d18889ba6f6994e477ba7351864f5f6f70bc2a2c614f7e181dfb8255542",
+      "bytes": 1017,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/agents.js",
+      "sha256": "154103daf9b1e54d62bafb5f7a7597652b322219c82ddde8c17586cd28ea827c",
+      "installed_sha256": "d07d9279fd6a2645e270ce9133aae40c6845adfde20b7b424df3d783ef07b4b7",
+      "bytes": 320355,
+      "mode": "0644",
+      "changed": true
+    },
+    {
+      "path": "@paperclipai/server/dist/routes/agents.js.map",
+      "sha256": "71c3879ccdb517c4b6bf4f404e97bcc4e199259075eeb43d21a56c658f2f7869",
+      "installed_sha256": "e829c33a72c981d1343253e338b4384384760dff57786201883103d794e754ad",
+      "bytes": 221796,
       "mode": "0644",
       "changed": true
     },
@@ -409,9 +447,9 @@
     },
     {
       "path": "@paperclipai/shared/dist/validators/agent.d.ts",
-      "sha256": "dd1d38f5726e1eacb266f56c5345e6d003c0e947617757894d68f2cb32cce54e",
+      "sha256": "92f938149110048815de7cd1b93cbd6fd35ad44dbb315f7116efbb930cf08cc7",
       "installed_sha256": "115381101daf2f7558a9cb11bed6e4bbcbf7a41920de0b1d3f666d4c671f1224",
-      "bytes": 33265,
+      "bytes": 33266,
       "mode": "0644",
       "changed": true
     },
@@ -425,17 +463,17 @@
     },
     {
       "path": "@paperclipai/shared/dist/validators/agent.js",
-      "sha256": "2d28ea5d23405ce699f2e072e00dc41f6cd53435b807c74265e500bf58491a80",
+      "sha256": "e05a343af15b36277328f392ee3781b88adc25b3dbfe9886de73aa1b5697dae2",
       "installed_sha256": "5f264746a5b2871b1590a951d344c358a803090092afc9ca455c2684d55b50de",
-      "bytes": 10781,
+      "bytes": 10742,
       "mode": "0644",
       "changed": true
     },
     {
       "path": "@paperclipai/shared/dist/validators/agent.js.map",
-      "sha256": "fed9b89d252645efde971fb2975666085b036a2ffed51efc50e94e20a35f61ca",
+      "sha256": "ba28baa2dac3baa6e7bc950282cf1f59f168cce4ac0ab1a560d6007170fa9161",
       "installed_sha256": "345719751cdeeae178d2b1276b07ca1b9f02c6d922fde1f23ad1666551171d91",
-      "bytes": 10895,
+      "bytes": 10878,
       "mode": "0644",
       "changed": true
     },
