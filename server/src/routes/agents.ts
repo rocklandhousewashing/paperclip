@@ -1,4 +1,4 @@
-import { hasManagedAiBindingChanged } from "../services/managed-ai-binding-change.js";
+import { hasManagedAiBindingChanged, hasManagedAiSelectionChanged } from "../services/managed-ai-binding-change.js";
 import { cancellationRequestId } from "../services/native-runtime/native-cancellation-request.js";
 import { agentEnvironmentTestService } from "../services/agent-environment-test.js";
 import { createAgentLifecycle } from "../services/agent-lifecycle.js";
@@ -5318,8 +5318,14 @@ export function agentRoutes(
       await assertCanUpdateAgent(req, existing);
       const changed = hasManagedAiBindingChanged(existing.runtimeConfig.aiConnection, nextAiBinding);
       const aiConfig = (patchData.adapterConfig ?? existing.adapterConfig) as Record<string, unknown>;
+      const selectionChanged = hasManagedAiSelectionChanged(
+        existing.adapterType,
+        applyCreateDefaultsByAdapterType(existing.adapterType, asRecord(existing.adapterConfig) ?? {}),
+        requestedAdapterType,
+        applyCreateDefaultsByAdapterType(requestedAdapterType, aiConfig),
+      );
       if (nextAiBinding.mode !== "router" && !isAiConnectionCompatible(nextAiBinding, requestedAdapterType, aiConfig.model, aiConfig.provider, aiConfig.acpxAgent)) throw unprocessable("Select an AI connection compatible with the new harness and model");
-      if (changed || (nextAiBinding.mode === "router" && requestedAdapterType !== existing.adapterType)) await validateManagedAgentBinding(req, existing.companyId, existing.id, requestedAdapterType, aiConfig, nextAiBinding, (patchData.defaultEnvironmentId !== undefined ? patchData.defaultEnvironmentId : existing.defaultEnvironmentId) as string | null, true);
+      if (changed || selectionChanged) await validateManagedAgentBinding(req, existing.companyId, existing.id, requestedAdapterType, aiConfig, nextAiBinding, (patchData.defaultEnvironmentId !== undefined ? patchData.defaultEnvironmentId : existing.defaultEnvironmentId) as string | null, true);
     }
     if (requestedRuntimeConfig) patchData.runtimeConfig = requestedRuntimeConfig;
     if (touchesAdapterConfiguration || Object.prototype.hasOwnProperty.call(patchData, "defaultEnvironmentId")) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AiConnectionBinding } from "@paperclipai/shared";
-import { hasManagedAiBindingChanged } from "../services/managed-ai-binding-change.js";
+import { hasManagedAiBindingChanged, hasManagedAiSelectionChanged } from "../services/managed-ai-binding-change.js";
 
 describe("hasManagedAiBindingChanged", () => {
   const responsibleUserBinding: AiConnectionBinding = {
@@ -61,4 +61,27 @@ describe("hasManagedAiBindingChanged", () => {
     })).toBe(true);
   });
 
+});
+
+describe("hasManagedAiSelectionChanged", () => {
+  it.each([
+    ["claude_local", { model: "old" }, "claude_local", { model: "new" }],
+    ["claude_local", { model: "same" }, "codex_local", { model: "same" }],
+    ["paperclip_runner", { provider: "codex", model: "same" }, "paperclip_runner", { provider: "openai_dot", model: "same" }],
+    ["paperclip_runner", { provider: "acpx", acpxAgent: "claude" }, "paperclip_runner", { provider: "acpx", acpxAgent: "codex" }],
+  ] as const)("rechecks a changed effective selection (%s)", (previousType, previous, nextType, next) => {
+    expect(hasManagedAiSelectionChanged(previousType, previous, nextType, next)).toBe(true);
+  });
+
+  it("ignores unrelated config after selection defaults are applied", () => {
+    expect(hasManagedAiSelectionChanged("claude_local", { model: "same", maxTurns: 3 },
+      "claude_local", { maxTurns: 8, model: "same", env: { FIXTURE: "value" } })).toBe(false);
+  });
+
+  it("ignores unused runner selector fields", () => {
+    expect(hasManagedAiSelectionChanged("claude_local", { provider: "unused", acpxAgent: "claude" },
+      "claude_local", { provider: "other", acpxAgent: "codex" })).toBe(false);
+    expect(hasManagedAiSelectionChanged("paperclip_runner", { provider: "codex", acpxAgent: "claude" },
+      "paperclip_runner", { provider: "codex", acpxAgent: "codex" })).toBe(false);
+  });
 });

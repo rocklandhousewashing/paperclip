@@ -1,4 +1,5 @@
 import * as codexAdapter from "@paperclipai/adapter-codex-local/server";
+import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
 import { WORKSPACE_RESTORE_LOCK_TIMEOUT_CODE } from "@paperclipai/adapter-utils/workspace-restore-merge";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -56,12 +57,12 @@ afterAll(async () => {
   if (home) await rm(home, { recursive: true, force: true });
 });
 
-async function fixture(provider: "anthropic" | "openai", method: "api_key" | "subscription" = "api_key") {
+async function fixture(provider: "anthropic" | "openai" | "google", method: "api_key" | "subscription" = "api_key") {
   const companyId = randomUUID();
   const agentId = randomUUID();
   const userId = `owner-${companyId}`;
   const binding = { provider, method, mode: "responsible_user" } as const;
-  const adapterType = provider === "anthropic" ? "claude_local" : "codex_local";
+  const adapterType = provider === "anthropic" ? "claude_local" : provider === "google" ? "gemini_local" : "codex_local";
   await db.insert(companies).values({ id: companyId, name: "Hiring connection test", issuePrefix: `H${companyId.slice(0, 7)}`, defaultResponsibleUserId: userId });
   await db.insert(companyMemberships).values({ companyId, principalType: "user", principalId: userId, membershipRole: "owner", status: "active" });
   await db.insert(principalPermissionGrants).values({ companyId, principalType: "user", principalId: userId, permissionKey: "agents:create" });
@@ -228,6 +229,62 @@ describe("agent-created hires use managed AI connections", () => {
     expect(saved.runtimeConfig.aiConnection).toEqual(p.binding);
   });
 
+  it.each([
+    { name: "unrelated config", patch: { adapterConfig: { maxTurns: 8 } } },
+    { name: "unchanged model", patch: { adapterConfig: { model: "same-model" } } },
+    { name: "reordered binding", patch: { runtimeConfig: { aiConnection: { mode: "responsible_user", method: "api_key", provider: "anthropic" } } } },
+  ])("does not probe an unchanged AI selection for $name", async ({ patch }) => {
+    const f = await fixture("anthropic", "api_key");
+    await db.insert(principalPermissionGrants).values({ companyId: f.companyId, principalType: "user", principalId: f.userId, permissionKey: "agents:configure" });
+    await db.update(agents).set({ adapterConfig: { model: "same-model" } }).where(eq(agents.id, f.agentId));
+    const network = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unrelated edits must not contact the provider"));
+    const original = getServerAdapter(f.adapterType);
+    const testEnvironment = vi.fn(async () => ({ adapterType: f.adapterType, status: "pass" as const, checks: [], testedAt: new Date().toISOString() }));
+    registerServerAdapter({ ...original, testEnvironment });
+    try {
+      const response = await request(f.app).patch(`/api/agents/${f.agentId}`).send(patch);
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      expect(response.body.adapterConfig.model).toBe("same-model");
+      expect(network).not.toHaveBeenCalled();
+      expect(testEnvironment).not.toHaveBeenCalled();
+    } finally { network.mockRestore(); unregisterServerAdapter(f.adapterType); }
+  });
+
+  it.each([false, true])("does not probe when materializing a legacy default model (replace: %s)", async (replaceAdapterConfig) => {
+    const f = await fixture("google");
+    await db.insert(principalPermissionGrants).values({ companyId: f.companyId, principalType: "user", principalId: f.userId, permissionKey: "agents:configure" });
+    const network = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Default materialization must not contact the provider"));
+    const original = getServerAdapter(f.adapterType);
+    const testEnvironment = vi.fn(async () => ({ adapterType: f.adapterType, status: "pass" as const, checks: [], testedAt: new Date().toISOString() }));
+    registerServerAdapter({ ...original, testEnvironment });
+    try {
+      const response = await request(f.app).patch(`/api/agents/${f.agentId}`).send({ replaceAdapterConfig, adapterConfig: { maxTurns: 8 } });
+      expect(response.status, JSON.stringify(response.body)).toBe(200);
+      expect(response.body.adapterConfig.model).toBe(DEFAULT_GEMINI_LOCAL_MODEL);
+      expect(network).not.toHaveBeenCalled();
+      expect(testEnvironment).not.toHaveBeenCalled();
+    } finally { network.mockRestore(); unregisterServerAdapter(f.adapterType); }
+  });
+
+  it("revalidates a replacement that removes a nondefault model", async () => {
+    const f = await fixture("anthropic", "subscription");
+    await db.insert(principalPermissionGrants).values({ companyId: f.companyId, principalType: "user", principalId: f.userId, permissionKey: "agents:configure" });
+    await db.update(agents).set({ adapterConfig: { model: "custom-model" } }).where(eq(agents.id, f.agentId));
+    const original = getServerAdapter(f.adapterType);
+    const testEnvironment = vi.fn(async () => ({
+      adapterType: f.adapterType, status: "fail" as const, testedAt: new Date().toISOString(),
+      checks: [{ code: "fixture_runtime_failed", level: "error" as const, message: "Fixture rejection" }],
+    }));
+    registerServerAdapter({ ...original, testEnvironment });
+    try {
+      const response = await request(f.app).patch(`/api/agents/${f.agentId}`).send({ replaceAdapterConfig: true, adapterConfig: { maxTurns: 8 } });
+      expect(response.status, JSON.stringify(response.body)).toBe(422);
+      expect(testEnvironment).toHaveBeenCalledTimes(1);
+      const [saved] = await db.select().from(agents).where(eq(agents.id, f.agentId));
+      expect(saved.adapterConfig).toEqual({ model: "custom-model" });
+    } finally { unregisterServerAdapter(f.adapterType); }
+  });
+
   for (const operation of ["test", "save"] as const) {
     it.each([401, 403, 429, 503, null])(`${operation} changes API-key health only for a provider rejection (status: %s)`, async (status) => {
       const f = await fixture("anthropic", "api_key");
@@ -242,6 +299,10 @@ describe("agent-created hires use managed AI connections", () => {
           ? await request(f.app).post(`/api/companies/${f.companyId}/adapters/${f.adapterType}/test-environment`).send({ agentId: f.agentId, aiConnection: f.binding, adapterConfig: {} })
           : await request(f.app).patch(`/api/agents/${f.agentId}`).send({ adapterConfig: { model: "changed-model" } });
         expect(response.status, JSON.stringify(response.body)).toBe(operation === "test" ? 200 : 422);
+        if (operation === "save") {
+          const [saved] = await db.select().from(agents).where(eq(agents.id, f.agentId));
+          expect(saved.adapterConfig.model).toBeUndefined();
+        }
         const rejected = status === 401 || status === 403;
         expect(await aiConnectionService(db).list(f.companyId, f.userId)).toEqual([expect.objectContaining({ status: rejected ? "needs_attention" : "connected" })]);
       } finally { network.mockRestore(); unregisterServerAdapter(f.adapterType); }

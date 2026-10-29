@@ -17,3 +17,21 @@ export function hasManagedAiBindingChanged(
   const nextBinding = aiRuntimeConnectionBindingSchema.safeParse(next).data;
   return !previousBinding || !nextBinding || JSON.stringify(previousBinding) !== JSON.stringify(nextBinding);
 }
+
+/** Compare model/harness selection after callers apply the same adapter defaults.
+ * Other config changes (instructions, turn limits, env) do not change identity.
+ */
+export function hasManagedAiSelectionChanged(
+  previousAdapterType: string,
+  previousConfig: Record<string, unknown>,
+  nextAdapterType: string,
+  nextConfig: Record<string, unknown>,
+): boolean {
+  const text = (value: unknown) => typeof value === "string" ? value : null;
+  const selection = (adapterType: string, config: Record<string, unknown>) => {
+    const provider = adapterType === "paperclip_runner" ? text(config.provider) : null;
+    return [adapterType, text(config.model), provider, provider === "acpx" ? text(config.acpxAgent) : null];
+  };
+  return JSON.stringify(selection(previousAdapterType, previousConfig))
+    !== JSON.stringify(selection(nextAdapterType, nextConfig));
+}
