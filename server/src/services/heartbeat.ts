@@ -453,6 +453,7 @@ import {
   buildWorkspaceReadyPresentation,
   ensureRuntimeServicesForRun,
   persistAdapterManagedRuntimeServices,
+  resolveManagedGitWorktreeSandboxMetadata,
   releaseRuntimeServicesForRun,
   type RealizedExecutionWorkspace,
   type RuntimeServiceRef,
@@ -3746,6 +3747,7 @@ export function heartbeatService(
             ]
           : []),
       ];
+      const managedGitWorktree = await resolveManagedGitWorktreeSandboxMetadata(executionWorkspace);
       context.paperclipWorkspace = {
         cwd: executionWorkspace.cwd,
         source: executionWorkspace.source,
@@ -3757,6 +3759,7 @@ export function heartbeatService(
         repoRef: executionWorkspace.repoRef,
         branchName: executionWorkspace.branchName,
         worktreePath: executionWorkspace.worktreePath,
+        managedGitWorktree,
         realization: workspaceRealization,
         agentHome: await (async () => {
           const home = resolveDefaultAgentWorkspaceDir(agent.id);

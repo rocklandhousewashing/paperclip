@@ -184,6 +184,13 @@ export interface RealizedExecutionWorkspace extends ExecutionWorkspaceInput {
   pendingForwardBranchReconcile?: PendingForwardBranchReconcile | null;
 }
 
+export interface ManagedGitWorktreeSandboxMetadata {
+  version: 1;
+  worktreePath: string;
+  gitDir: string;
+  commonDir: string;
+}
+
 export class WorkspaceRuntimeValidationFailure extends Error {
   code = "workspace_validation_failed" as const;
   resultJson: Record<string, unknown>;
@@ -2721,6 +2728,58 @@ async function resolveGitOwnerRepoRoot(cwd: string): Promise<string> {
   const commonDir = await runGit(["rev-parse", "--git-common-dir"], checkoutRoot).catch(() => null);
   if (!commonDir) return checkoutRoot;
   return path.dirname(path.resolve(checkoutRoot, commonDir));
+}
+
+function pathIsInside(parent: string, candidate: string): boolean {
+  const relative = path.relative(parent, candidate);
+  return relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+/**
+ * Resolve the Git administrative storage for a worktree created and validated by
+ * the workspace runtime. The returned paths are suitable only for the local
+ * adapter sandbox metadata channel; callers must not accept agent-configured
+ * paths as a substitute.
+ */
+export async function resolveManagedGitWorktreeSandboxMetadata(
+  workspace: RealizedExecutionWorkspace,
+): Promise<ManagedGitWorktreeSandboxMetadata | null> {
+  if (workspace.strategy !== "git_worktree" || !workspace.worktreePath) return null;
+
+  const worktreePath = await resolvePathForWorktreeComparison(workspace.worktreePath);
+  const cwd = await resolvePathForWorktreeComparison(workspace.cwd);
+  if (cwd !== worktreePath) {
+    throw new WorkspaceRuntimeValidationFailure(
+      `Managed git worktree cwd "${cwd}" does not match recorded worktree path "${worktreePath}".`,
+      { workspaceValidation: { reason: "git_worktree_sandbox_cwd_mismatch" } },
+    );
+  }
+
+  const repoRoot = await resolveGitOwnerRepoRoot(workspace.baseCwd);
+  const registered = await findRegisteredGitWorktreeByPath(repoRoot, worktreePath);
+  if (!registered) {
+    throw new WorkspaceRuntimeValidationFailure(
+      `Managed git worktree "${worktreePath}" is not registered under its recorded base repository.`,
+      { workspaceValidation: { reason: "git_worktree_sandbox_not_registered" } },
+    );
+  }
+
+  const [gitDirRaw, commonDirRaw, baseCommonDirRaw] = await Promise.all([
+    runGit(["rev-parse", "--absolute-git-dir"], worktreePath),
+    runGit(["rev-parse", "--git-common-dir"], worktreePath),
+    runGit(["rev-parse", "--git-common-dir"], workspace.baseCwd),
+  ]);
+  const gitDir = await fs.realpath(path.resolve(worktreePath, gitDirRaw));
+  const commonDir = await fs.realpath(path.resolve(worktreePath, commonDirRaw));
+  const baseCommonDir = await fs.realpath(path.resolve(workspace.baseCwd, baseCommonDirRaw));
+  if (commonDir !== baseCommonDir || !pathIsInside(path.join(commonDir, "worktrees"), gitDir)) {
+    throw new WorkspaceRuntimeValidationFailure(
+      `Managed git worktree "${worktreePath}" resolved outside its recorded base repository Git administration directory.`,
+      { workspaceValidation: { reason: "git_worktree_sandbox_admin_path_mismatch" } },
+    );
+  }
+
+  return { version: 1, worktreePath, gitDir, commonDir };
 }
 
 async function findRegisteredGitWorktreeByBranch(repoRoot: string, branchName: string): Promise<string | null> {

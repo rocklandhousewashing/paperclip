@@ -1,8 +1,10 @@
 import fs from "node:fs/promises";
+import { execFile } from "node:child_process";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildLocalProcessSandboxSpawnTarget,
@@ -10,10 +12,39 @@ import {
   parseLocalProcessNetworkAllowlist,
   parseLocalProcessNetworkScope,
   parseLocalProcessSandboxExtraPaths,
+  resolveManagedGitWorktreeSandboxPaths,
 } from "./local-process-sandbox.js";
 import { runChildProcess } from "./server-utils.js";
 
 const cleanup: string[] = [];
+const execFileAsync = promisify(execFile);
+
+async function git(cwd: string, args: string[]): Promise<string> {
+  const result = await execFileAsync("git", args, { cwd });
+  return result.stdout.trim();
+}
+
+async function createLinkedWorktreeFixture(): Promise<{
+  root: string;
+  base: string;
+  worktree: string;
+  metadata: { version: 1; worktreePath: string; gitDir: string; commonDir: string };
+}> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-linked-worktree-sandbox-"));
+  cleanup.push(root);
+  const base = path.join(root, "base");
+  const worktree = path.join(root, "worktree");
+  await fs.mkdir(base);
+  await git(base, ["init", "-b", "main"]);
+  await fs.writeFile(path.join(base, "result.txt"), "base\n", "utf8");
+  await git(base, ["add", "result.txt"]);
+  await git(base, ["-c", "user.name=Paperclip Test", "-c", "user.email=test@paperclip.invalid", "commit", "-m", "base"]);
+  await git(base, ["worktree", "add", "-b", "paperclip/test", worktree]);
+  const gitDir = await fs.realpath(await git(worktree, ["rev-parse", "--absolute-git-dir"]));
+  const commonDirRaw = await git(worktree, ["rev-parse", "--git-common-dir"]);
+  const commonDir = await fs.realpath(path.resolve(worktree, commonDirRaw));
+  return { root, base, worktree, metadata: { version: 1, worktreePath: worktree, gitDir, commonDir } };
+}
 
 async function withTmpDir<T>(tmpDir: string, run: () => Promise<T>): Promise<T> {
   const previousTmpDir = process.env.TMPDIR;
@@ -57,6 +88,33 @@ describe("local process sandbox", () => {
       .toEqual(["api.openai.com", "api.anthropic.com", "gateway.test:8443"]);
     expect(() => parseLocalProcessNetworkAllowlist(["*.example.com"])).toThrow("exact hostname");
     expect(() => parseLocalProcessNetworkScope("public")).toThrow('"deny" or "allowlist"');
+  });
+
+  it("does not add a Git administration mount for an ordinary workspace", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-ordinary-workspace-"));
+    cleanup.push(workspace);
+    await expect(resolveManagedGitWorktreeSandboxPaths({
+      strategy: "project_primary",
+      worktreePath: null,
+    }, workspace)).resolves.toEqual([]);
+  });
+
+  it("fails closed when a recorded linked worktree has no trusted server metadata", async () => {
+    const fixture = await createLinkedWorktreeFixture();
+    await expect(resolveManagedGitWorktreeSandboxPaths({
+      strategy: "git_worktree",
+      worktreePath: fixture.worktree,
+    }, fixture.worktree)).rejects.toThrow("metadata is required");
+  });
+
+  it("rejects a linked-worktree pointer that differs from trusted server metadata", async () => {
+    const fixture = await createLinkedWorktreeFixture();
+    await fs.writeFile(path.join(fixture.worktree, ".git"), `gitdir: ${path.join(fixture.base, ".git")}\n`, "utf8");
+    await expect(resolveManagedGitWorktreeSandboxPaths({
+      strategy: "git_worktree",
+      worktreePath: fixture.worktree,
+      managedGitWorktree: fixture.metadata,
+    }, fixture.worktree)).rejects.toThrow("do not match trusted server metadata");
   });
 
   it.runIf(process.platform === "linux")("describes every valid allowlist input when no proxy rules remain", async () => {
@@ -332,6 +390,54 @@ describe("local process sandbox", () => {
 
       expect(result.exitCode, result.stderr).toBe(0);
       await expect(fs.readFile(path.join(workspace, "workspace-ok.txt"), "utf8")).resolves.toBe("ok");
+    },
+  );
+
+  it.runIf(Boolean(process.env.PAPERCLIP_TEST_BWRAP))(
+    "commits two revisions in a trusted linked worktree while the base checkout stays unchanged",
+    async () => {
+      const fixture = await createLinkedWorktreeFixture();
+      const baseHead = await git(fixture.base, ["rev-parse", "HEAD"]);
+      const managedPaths = await resolveManagedGitWorktreeSandboxPaths({
+        strategy: "git_worktree",
+        worktreePath: fixture.worktree,
+        managedGitWorktree: fixture.metadata,
+      }, fixture.worktree);
+      expect(managedPaths).toEqual([{ path: fixture.metadata.commonDir, access: "rw" }]);
+
+      const script = [
+        "const fs = require('node:fs');",
+        "const { execFileSync } = require('node:child_process');",
+        "const git = (args) => execFileSync('git', args, { stdio: 'pipe' });",
+        `try { fs.readFileSync(${JSON.stringify(path.join(fixture.base, "result.txt"))}, 'utf8'); process.exit(9); } catch (error) {`,
+        "  if (!['ENOENT', 'EACCES'].includes(error.code)) throw error;",
+        "}",
+        "fs.writeFileSync('result.txt', 'first revision\\n');",
+        "git(['add', 'result.txt']);",
+        "git(['-c', 'user.name=Paperclip Test', '-c', 'user.email=test@paperclip.invalid', 'commit', '-m', 'first']);",
+        "fs.writeFileSync('result.txt', 'second revision\\n');",
+        "git(['add', 'result.txt']);",
+        "git(['-c', 'user.name=Paperclip Test', '-c', 'user.email=test@paperclip.invalid', 'commit', '-m', 'second']);",
+      ].join("\n");
+      const result = await runChildProcess("linked-worktree-sandbox-test", process.execPath, ["-e", script], {
+        cwd: fixture.worktree,
+        env: {},
+        timeoutSec: 20,
+        graceSec: 1,
+        onLog: async () => {},
+        localProcessSandbox: {
+          workspaceDir: fixture.worktree,
+          filesystemScope: "workspace",
+          managedPaths,
+          command: process.env.PAPERCLIP_TEST_BWRAP,
+        },
+      });
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(await git(fixture.worktree, ["rev-list", "--count", `${baseHead}..HEAD`])).toBe("2");
+      expect(await git(fixture.base, ["rev-parse", "HEAD"])).toBe(baseHead);
+      expect(await git(fixture.base, ["status", "--porcelain"])).toBe("");
+      expect(await git(fixture.worktree, ["status", "--porcelain"])).toBe("");
     },
   );
 

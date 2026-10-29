@@ -61,6 +61,7 @@ import {
   parseLocalProcessSandboxExtraPaths,
   parseLocalProcessNetworkAllowlist,
   parseLocalProcessNetworkScope,
+  resolveManagedGitWorktreeSandboxPaths,
   type LocalProcessSandboxOptions,
 } from "@paperclipai/adapter-utils/local-process-sandbox";
 import {
@@ -585,6 +586,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const sharedClaudeConfigDir = managedClaudeConfigDir || resolveSharedClaudeConfigDir(process.env);
   const networkScope = parseLocalProcessNetworkScope(config.networkScope);
   const filesystemScope = parseLocalProcessFilesystemScope(config.filesystemScope);
+  const managedGitWorktreePaths = filesystemScope && !executionTargetIsRemote
+    ? await resolveManagedGitWorktreeSandboxPaths(workspaceContext, effectiveExecutionCwd)
+    : [];
   const localProcessSandbox: LocalProcessSandboxOptions | null =
     (filesystemScope || networkScope) && !executionTargetIsRemote
       ? {
@@ -596,6 +600,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
             { path: path.join(path.dirname(sharedClaudeConfigDir), ".claude.json"), access: "rw" },
             { path: promptBundle.addDir, access: "ro" },
             { path: localMcpConfigDir, access: "ro" },
+            ...managedGitWorktreePaths,
           ],
           extraPaths: parseLocalProcessSandboxExtraPaths(config.filesystemExtraPaths),
           homeDir: filesystemScope ? path.dirname(sharedClaudeConfigDir) : null,
