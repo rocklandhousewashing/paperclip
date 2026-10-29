@@ -71,6 +71,7 @@ import {
   isPaperclipRuntimeEnvKey,
   joinPromptSections,
   materializePaperclipSkillCopy,
+  materializeManagedClaudeUserSkills,
   parseObject,
   isPaperclipSkillSourceMissing,
   readPaperclipRuntimeSkillEntries,
@@ -1186,6 +1187,17 @@ async function prepareClaudeSkillRuntime(input: {
   }
 
   const selectedNames = materializedNames.sort();
+  if (input.config.managedAiConnection) {
+    const configDir = parseObject(input.config.env).CLAUDE_CONFIG_DIR;
+    if (typeof configDir !== "string" || !path.isAbsolute(configDir)) {
+      throw new Error("Managed Claude connection has no private CLAUDE_CONFIG_DIR.");
+    }
+    await materializeManagedClaudeUserSkills({
+      configDir,
+      skills: selectedSkills.filter((entry) => selectedNames.includes(entry.runtimeName)),
+      onLog: input.onLog,
+    });
+  }
   const skillDescriptions = await Promise.all(selectedNames.map(async (name) => {
     const file = path.join(skillsHome, name, "SKILL.md");
     let description = "";

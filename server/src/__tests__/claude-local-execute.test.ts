@@ -71,6 +71,9 @@ const payload = {
   claudeConfigEntries: process.env.CLAUDE_CONFIG_DIR && fs.existsSync(process.env.CLAUDE_CONFIG_DIR)
     ? fs.readdirSync(process.env.CLAUDE_CONFIG_DIR).sort()
     : [],
+  userSkillEntries: process.env.CLAUDE_CONFIG_DIR && fs.existsSync(path.join(process.env.CLAUDE_CONFIG_DIR, "skills"))
+    ? fs.readdirSync(path.join(process.env.CLAUDE_CONFIG_DIR, "skills")).sort()
+    : [],
   paperclipApiUrl: process.env.PAPERCLIP_API_URL || null,
   paperclipApiKey: process.env.PAPERCLIP_API_KEY || null,
   paperclipApiBridgeMode: process.env.PAPERCLIP_API_BRIDGE_MODE || null,
@@ -172,6 +175,7 @@ type CapturePayload = {
   skillEntries: string[];
   claudeConfigDir: string | null;
   claudeConfigEntries?: string[];
+  userSkillEntries?: string[];
   paperclipApiUrl?: string | null;
   paperclipApiKey?: string | null;
   paperclipApiBridgeMode?: string | null;
@@ -352,6 +356,91 @@ function createLocalSandboxRunner() {
 }
 
 describe("claude execute", () => {
+  it("loads selected managed-connection skills from private user scope under a read-only bwrap mount", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-claude-managed-skills-"));
+    const { workspace, commandPath, capturePath, restore } = await setupExecuteEnv(root);
+    const providerHome = path.join(root, "private-connection", "provider");
+    const skillSource = path.join(root, "company-skills", "whip-campaign");
+    const unusedSource = path.join(root, "company-skills", "other-company");
+    const outsideFile = path.join(root, "outside-secret.txt");
+    const bwrapPath = path.join(root, "fake-bwrap");
+    const bwrapCapturePath = path.join(root, "bwrap-args.json");
+    const previousPaperclipHome = process.env.PAPERCLIP_HOME;
+    process.env.PAPERCLIP_HOME = path.join(root, "paperclip-home");
+    await fs.mkdir(providerHome, { recursive: true });
+    await fs.mkdir(skillSource, { recursive: true });
+    await fs.mkdir(unusedSource, { recursive: true });
+    await fs.writeFile(path.join(skillSource, "SKILL.md"), "# Whip campaign\n", "utf8");
+    await fs.writeFile(path.join(unusedSource, "SKILL.md"), "# Other company\n", "utf8");
+    await fs.writeFile(outsideFile, "private\n", "utf8");
+    await fs.symlink(outsideFile, path.join(skillSource, "outside.txt"));
+    await fs.writeFile(bwrapPath, `#!/usr/bin/env node
+const fs = require("node:fs");
+const cp = require("node:child_process");
+const args = process.argv.slice(2);
+fs.writeFileSync(process.env.PAPERCLIP_TEST_BWRAP_CAPTURE_PATH, JSON.stringify(args));
+const marker = args.lastIndexOf("--");
+const child = cp.spawnSync(args[marker + 1], args.slice(marker + 2), {
+  input: fs.readFileSync(0), env: process.env, encoding: "utf8",
+});
+process.stdout.write(child.stdout || "");
+process.stderr.write(child.stderr || "");
+process.exit(child.status ?? 1);
+`, "utf8");
+    await fs.chmod(bwrapPath, 0o755);
+
+    try {
+      const result = await execute({
+        runId: "managed-skills-run",
+        agent: { id: "agent-1", companyId: "company-1", name: "Claude", adapterType: "claude_local", adapterConfig: { engine: "cli" } },
+        runtime: { sessionId: null, sessionParams: null, sessionDisplayId: null, taskKey: null },
+        config: {
+          engine: "cli", command: commandPath, cwd: workspace,
+          managedAiConnection: { provider: "anthropic", method: "api_key" },
+          filesystemScope: "workspace", filesystemSandboxCommand: bwrapPath,
+          env: {
+            CLAUDE_CONFIG_DIR: providerHome,
+            PAPERCLIP_TEST_CAPTURE_PATH: capturePath,
+            PAPERCLIP_TEST_BWRAP_CAPTURE_PATH: bwrapCapturePath,
+          },
+          paperclipRuntimeSkills: [
+            { key: "company/whip-campaign", runtimeName: "whip-campaign", source: skillSource },
+            { key: "company/other-company", runtimeName: "other-company", source: unusedSource },
+          ],
+          paperclipSkillSync: { desiredSkills: ["company/whip-campaign"] },
+        },
+        context: {},
+        onLog: async () => {},
+      });
+
+      expect(result.exitCode).toBe(0);
+      const capture = JSON.parse(await fs.readFile(capturePath, "utf8")) as CapturePayload;
+      const userSkillsHome = path.join(providerHome, "skills");
+      const copiedSkill = path.join(userSkillsHome, "whip-campaign");
+      expect(capture.argv).toContain("--setting-sources");
+      expect(capture.argv[capture.argv.indexOf("--setting-sources") + 1]).toBe("user");
+      expect(capture.argv).toContain("--add-dir");
+      expect(capture.userSkillEntries).toEqual(["whip-campaign"]);
+      await expect(fs.readFile(path.join(copiedSkill, "SKILL.md"), "utf8")).resolves.toBe("# Whip campaign\n");
+      await expect(fs.lstat(path.join(copiedSkill, "outside.txt"))).rejects.toMatchObject({ code: "ENOENT" });
+      expect((await fs.lstat(copiedSkill)).isSymbolicLink()).toBe(false);
+      expect((await fs.stat(path.join(copiedSkill, "SKILL.md"))).mode & 0o222).toBe(0);
+      const bwrapArgs = JSON.parse(await fs.readFile(bwrapCapturePath, "utf8")) as string[];
+      expect(bwrapArgs.join(" ")).not.toContain(skillSource);
+      expect(bwrapArgs).toContain(userSkillsHome);
+      const mountIndex = bwrapArgs.findIndex((arg, index) =>
+        arg === "--ro-bind" && bwrapArgs[index + 1] === userSkillsHome && bwrapArgs[index + 2] === userSkillsHome);
+      expect(mountIndex).toBeGreaterThan(-1);
+      expect(bwrapArgs.findIndex((arg, index) =>
+        arg === "--bind" && bwrapArgs[index + 1] === providerHome && bwrapArgs[index + 2] === providerHome)).toBeGreaterThan(-1);
+    } finally {
+      restore();
+      if (previousPaperclipHome === undefined) delete process.env.PAPERCLIP_HOME;
+      else process.env.PAPERCLIP_HOME = previousPaperclipHome;
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("passes real assignment markdown and ordered current events once through the CLI", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-claude-context-owner-"));
     const { workspace, commandPath, capturePath, restore } = await setupExecuteEnv(root);

@@ -4626,6 +4626,56 @@ export async function materializePaperclipSkillCopy(
   }
 }
 
+/** Copy selected skills into a managed Claude connection's private user scope. */
+export async function materializeManagedClaudeUserSkills(input: {
+  configDir: string;
+  skills: PaperclipSkillEntry[];
+  onLog: (stream: "stdout" | "stderr", chunk: string) => Promise<void>;
+}): Promise<string> {
+  const skillsHome = path.join(input.configDir, "skills");
+  await fs.mkdir(skillsHome, { recursive: true, mode: 0o700 });
+  if (!(await fs.lstat(skillsHome)).isDirectory()) {
+    throw new Error("Managed Claude skills directory must not be a symlink.");
+  }
+  for (const entry of input.skills) {
+    const name = entry.runtimeName;
+    if (!name || name === "." || name === ".." || name !== path.basename(name) || name.includes("\\")) {
+      await input.onLog("stderr", `[paperclip] Skipped Claude skill with invalid runtime name "${name}".\n`);
+      continue;
+    }
+    const target = path.join(skillsHome, name);
+    try {
+      const result = await materializePaperclipSkillCopy(entry.source, target);
+      const skillMd = await fs.lstat(path.join(target, "SKILL.md")).catch(() => null);
+      if (!skillMd?.isFile()) {
+        await fs.rm(target, { recursive: true, force: true });
+        await input.onLog("stderr", `[paperclip] Skipped Claude skill "${entry.key}": no readable SKILL.md in the copied skill.\n`);
+        continue;
+      }
+      // The materializer refuses symlink roots and skips nested symlinks. Strip
+      // write bits from the private copy; a local bwrap run also mounts this
+      // subtree read-only while keeping the auth files writable.
+      const makeReadOnly = async (candidate: string): Promise<void> => {
+        const stat = await fs.lstat(candidate);
+        if (stat.isSymbolicLink()) throw new Error("Unexpected symlink in copied Claude skill");
+        if (stat.isDirectory()) {
+          for (const child of await fs.readdir(candidate)) await makeReadOnly(path.join(candidate, child));
+          return;
+        }
+        await fs.chmod(candidate, (stat.mode & 0o111) | 0o444);
+      };
+      await makeReadOnly(target);
+      if (result.skippedSymlinks.length > 0) {
+        await input.onLog("stderr", `[paperclip] Copied Claude skill "${entry.key}" without ${result.skippedSymlinks.length} nested symlink(s).\n`);
+      }
+    } catch (err) {
+      await fs.rm(target, { recursive: true, force: true }).catch(() => {});
+      await input.onLog("stderr", `[paperclip] Failed to copy Claude skill "${entry.key}" into managed user scope: ${err instanceof Error ? err.message : String(err)}\n`);
+    }
+  }
+  return skillsHome;
+}
+
 export async function removeMaintainerOnlySkillSymlinks(
   skillsHome: string,
   allowedSkillNames: Iterable<string>,

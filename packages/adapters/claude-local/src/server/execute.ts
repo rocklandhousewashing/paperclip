@@ -38,6 +38,7 @@ import {
   readPaperclipRuntimeSkillEntries,
   readPaperclipIssueWorkModeFromContext,
   joinPromptSections,
+  materializeManagedClaudeUserSkills,
   buildInvocationEnvForLogs,
   ensureAbsoluteDirectory,
   ensurePathInEnv,
@@ -555,6 +556,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     instructionsContents: combinedInstructionsContents,
     onLog,
   });
+  const managedClaudeConfigDir = config.managedAiConnection ? asString(configEnv.CLAUDE_CONFIG_DIR, "") : "";
+  if (config.managedAiConnection && !path.isAbsolute(managedClaudeConfigDir)) {
+    throw new Error("Managed Claude connection has no private CLAUDE_CONFIG_DIR.");
+  }
+  const managedUserSkillsHome = managedClaudeConfigDir
+    ? await materializeManagedClaudeUserSkills({
+        configDir: managedClaudeConfigDir,
+        skills: mountableSkillEntries,
+        onLog,
+      })
+    : null;
   const runtimeMcpServers = ctx.runtimeMcp?.getServers() ?? [];
   const runtimeMcpIdentity = JSON.stringify(
     runtimeMcpServers.map(({ name, url, connectionId }) => ({ name, url, connectionId })),
@@ -570,7 +582,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     servers: runtimeMcpServers,
   });
   const localMcpConfigDir = path.dirname(localMcpConfigPath);
-  const sharedClaudeConfigDir = config.managedAiConnection ? asString(configEnv.CLAUDE_CONFIG_DIR, "") : resolveSharedClaudeConfigDir(process.env);
+  const sharedClaudeConfigDir = managedClaudeConfigDir || resolveSharedClaudeConfigDir(process.env);
   const networkScope = parseLocalProcessNetworkScope(config.networkScope);
   const filesystemScope = parseLocalProcessFilesystemScope(config.filesystemScope);
   const localProcessSandbox: LocalProcessSandboxOptions | null =
@@ -580,6 +592,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           filesystemScope,
           managedPaths: [
             { path: sharedClaudeConfigDir, access: "rw" },
+            ...(managedUserSkillsHome ? [{ path: managedUserSkillsHome, access: "ro" as const }] : []),
             { path: path.join(path.dirname(sharedClaudeConfigDir), ".claude.json"), access: "rw" },
             { path: promptBundle.addDir, access: "ro" },
             { path: localMcpConfigDir, access: "ro" },

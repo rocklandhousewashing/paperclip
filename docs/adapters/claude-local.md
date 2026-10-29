@@ -100,6 +100,14 @@ On-call checklist if you see this in production:
 
 The adapter creates a temporary directory with symlinks to Paperclip skills and passes it via `--add-dir`. This makes skills discoverable without polluting the agent's working directory.
 
+Managed AI connections keep `--setting-sources user`. For these runs, the CLI
+and ACP paths also copy selected mountable company skills into the run's private
+`CLAUDE_CONFIG_DIR/skills/<runtimeName>/`, where user-scope discovery can load
+them. Copies exclude symlinks and have read-only files. Local filesystem-confined
+CLI runs mount the skills directory read-only inside the writable private config
+directory; remote runs stage the copies with the config seed. Repository settings
+are not enabled to load these skills.
+
 ## Remote credential ownership
 
 When no API key or `CLAUDE_CODE_OAUTH_TOKEN` is configured,
