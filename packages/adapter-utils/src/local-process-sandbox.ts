@@ -373,6 +373,10 @@ async function startNetworkAllowlistProxy(
     request.pipe(upstream);
   });
   server.on("connect", (request, clientSocket, head) => {
+    // Node detaches the HTTP server's socket error handler before emitting "connect", so a client
+    // ECONNRESET/EPIPE would otherwise surface as an uncaught exception in the host process.
+    clientSocket.on("error", () => clientSocket.destroy());
+    if (clientSocket.destroyed) return;
     const separator = request.url?.lastIndexOf(":") ?? -1;
     const hostname = separator > 0 ? request.url!.slice(0, separator).replace(/^\[|\]$/g, "") : "";
     const port = separator > 0 ? request.url!.slice(separator + 1) : "443";
@@ -384,13 +388,24 @@ async function startNetworkAllowlistProxy(
       return;
     }
     const upstream = net.connect(Number(port), hostname, () => {
+      if (clientSocket.destroyed) {
+        upstream.destroy();
+        return;
+      }
       clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
       if (head.length > 0) upstream.write(head);
       upstream.pipe(clientSocket);
       clientSocket.pipe(upstream);
     });
-    upstream.on("error", () => clientSocket.destroy());
-    clientSocket.on("close", () => upstream.destroy());
+    const closeTunnel = () => {
+      clientSocket.destroy();
+      upstream.destroy();
+    };
+    // Preserve the installed two-ended tunnel teardown on errors and closure.
+    clientSocket.on("error", closeTunnel);
+    clientSocket.on("close", closeTunnel);
+    upstream.on("error", closeTunnel);
+    upstream.on("close", closeTunnel);
   });
   const sockets = new Set<net.Socket>();
   server.on("connection", (socket) => {
@@ -489,14 +504,18 @@ export async function buildLocalProcessSandboxSpawnTarget(input: {
 
   if (filesystemScope === "workspace") {
     args.push("--tmpfs", "/", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp");
-    args.push(
-      "--symlink", "usr/bin", "/bin",
-      "--symlink", "usr/sbin", "/sbin",
-      "--symlink", "usr/lib", "/lib",
-      "--symlink", "usr/lib64", "/lib64",
-    );
     const created = new Set<string>(["/", "/proc", "/dev", "/tmp"]);
     const mounted = new Set<string>();
+    // Preserve merged-/usr aliases without binding over a symlink.
+    for (const alias of ["/bin", "/sbin", "/lib", "/lib64"]) {
+      const stat = await fs.lstat(alias).catch(() => null);
+      if (!stat?.isSymbolicLink()) continue;
+      const resolved = await fs.realpath(alias).catch(() => null);
+      if (!resolved?.startsWith("/usr/")) continue;
+      args.push("--symlink", await fs.readlink(alias), alias);
+      created.add(alias);
+      mounted.add(alias);
+    }
     const mount = async (source: string, access: LocalProcessSandboxAccess) => {
       const normalized = normalizeAbsolutePath(source, "Sandbox path");
       if (mounted.has(normalized) || !(await pathExists(normalized))) return;

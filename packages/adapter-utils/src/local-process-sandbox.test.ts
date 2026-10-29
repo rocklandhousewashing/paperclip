@@ -61,6 +61,91 @@ afterEach(async () => {
   await Promise.all(cleanup.splice(0).map((candidate) => fs.rm(candidate, { recursive: true, force: true })));
 });
 
+async function waitFor(condition: () => boolean, timeoutMs = 4000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error("Timed out waiting for condition.");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+// Synthetic loopback upstream: echoes input, or streams filler bytes forever after receiving "stream".
+async function startTunnelUpstream() {
+  const sockets = new Set<net.Socket>();
+  const server = net.createServer((socket) => {
+    sockets.add(socket);
+    let streaming: NodeJS.Timeout | undefined;
+    socket.on("error", () => {});
+    socket.on("close", () => {
+      clearInterval(streaming);
+      sockets.delete(socket);
+    });
+    socket.on("data", (chunk) => {
+      if (chunk.toString("utf8") === "stream") {
+        streaming ??= setInterval(() => socket.write(Buffer.alloc(16 * 1024, "x")), 5);
+      } else {
+        socket.write(chunk);
+      }
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Expected TCP test server address.");
+  return {
+    sockets,
+    authority: `127.0.0.1:${address.port}`,
+    close: async () => {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+async function startTunnelProxy(authority: string) {
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-network-tunnel-"));
+  cleanup.push(workspace);
+  const target = await buildLocalProcessSandboxSpawnTarget({
+    executable: process.execPath,
+    args: ["-e", "process.exit(0)"],
+    cwd: workspace,
+    options: { workspaceDir: workspace, networkScope: "allowlist", networkAllowlist: [authority] },
+  });
+  return { target, socketPath: target.args[target.args.indexOf("--") + 3] };
+}
+
+function openTunnel(socketPath: string, authority: string): Promise<net.Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(socketPath, () => {
+      socket.write(`CONNECT ${authority} HTTP/1.1\r\nHost: ${authority}\r\n\r\n`);
+    });
+    let buffered = "";
+    const onData = (chunk: Buffer) => {
+      buffered += chunk.toString("latin1");
+      if (!buffered.includes("\r\n\r\n")) return;
+      socket.off("data", onData);
+      if (buffered.startsWith("HTTP/1.1 200 ")) {
+        resolve(socket);
+      } else {
+        socket.destroy();
+        reject(new Error(`Unexpected CONNECT response: ${buffered}`));
+      }
+    };
+    socket.on("data", onData);
+    socket.on("error", reject);
+  });
+}
+
+async function expectTunnelEcho(socketPath: string, authority: string): Promise<void> {
+  const socket = await openTunnel(socketPath, authority);
+  try {
+    const echoed = new Promise<string>((resolve) => socket.once("data", (chunk) => resolve(chunk.toString("utf8"))));
+    socket.write("synthetic-ping");
+    await expect(echoed).resolves.toBe("synthetic-ping");
+  } finally {
+    socket.destroy();
+  }
+}
+
 describe("local process sandbox", () => {
   it.runIf(process.platform !== "linux")("rejects sandbox scopes on unsupported hosts", async () => {
     await expect(buildLocalProcessSandboxSpawnTarget({
@@ -332,6 +417,67 @@ describe("local process sandbox", () => {
     } finally {
       await target.cleanup?.();
       await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it.runIf(process.platform === "linux")("tears down the upstream when a CONNECT client disconnects mid-stream", async () => {
+    const upstream = await startTunnelUpstream();
+    const { target, socketPath } = await startTunnelProxy(upstream.authority);
+    try {
+      const socket = await openTunnel(socketPath, upstream.authority);
+      const firstChunk = new Promise<void>((resolve) => socket.once("data", () => resolve()));
+      socket.write("stream");
+      await firstChunk;
+      expect(upstream.sockets.size).toBe(1);
+      // The upstream keeps streaming, so the proxy writes into a closed peer (EPIPE/ECONNRESET).
+      socket.destroy();
+      await waitFor(() => upstream.sockets.size === 0);
+      await expectTunnelEcho(socketPath, upstream.authority);
+    } finally {
+      await target.cleanup?.();
+      await upstream.close();
+    }
+  });
+
+  it.runIf(process.platform === "linux")("closes the CONNECT client when the upstream resets", async () => {
+    const upstream = await startTunnelUpstream();
+    const { target, socketPath } = await startTunnelProxy(upstream.authority);
+    try {
+      const socket = await openTunnel(socketPath, upstream.authority);
+      const closed = new Promise<void>((resolve) => socket.once("close", () => resolve()));
+      const echoed = new Promise<void>((resolve) => socket.once("data", () => resolve()));
+      socket.write("synthetic-ping");
+      await echoed;
+      for (const upstreamSocket of upstream.sockets) upstreamSocket.resetAndDestroy();
+      await closed;
+      await expectTunnelEcho(socketPath, upstream.authority);
+    } finally {
+      await target.cleanup?.();
+      await upstream.close();
+    }
+  });
+
+  it.runIf(process.platform === "linux")("survives CONNECT clients that disconnect before the tunnel is established", async () => {
+    const upstream = await startTunnelUpstream();
+    const { target, socketPath } = await startTunnelProxy(upstream.authority);
+    try {
+      const abandon = (authority: string) => new Promise<void>((resolve) => {
+        const socket = net.createConnection(socketPath, () => {
+          socket.write(`CONNECT ${authority} HTTP/1.1\r\nHost: ${authority}\r\n\r\n`);
+          socket.destroy();
+        });
+        socket.on("error", () => {});
+        socket.on("close", () => resolve());
+      });
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await Promise.all([abandon(upstream.authority), abandon("denied.example.test:443")]);
+      }
+      await waitFor(() => upstream.sockets.size === 0);
+      await expectTunnelEcho(socketPath, upstream.authority);
+      await expect(openTunnel(socketPath, "denied.example.test:443")).rejects.toThrow("HTTP/1.1 403 Forbidden");
+    } finally {
+      await target.cleanup?.();
+      await upstream.close();
     }
   });
 
