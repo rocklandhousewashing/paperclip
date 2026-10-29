@@ -47,7 +47,7 @@ node scripts/pack-port-artifacts.mjs /path/to/new-audit-stage /path/to/PROVISION
 The helper uses the release package map, publish-manifest generators and bundled
 dependency staging/patches from `scripts/release.sh`, without invoking its publish
 or install paths. It stages source manifests privately, packages version
-`2026.1023.0-jarvis.port.1`, disables npm lifecycle scripts, copies release skills,
+`2026.1023.0-jarvis.port.2`, disables npm lifecycle scripts, copies release skills,
 checks native digest and clean source head, and emits tarballs plus hashes under
 the new stage's `dist/`. No source manifests are rewritten. The native provenance
 also travels inside the server tarball. This helper intentionally refuses a normal
