@@ -8,6 +8,7 @@ import {
   toolCredentialSecretRefSchema,
   toolRedactedValueSummarySchema,
   toolTransportConfigSchema,
+  updateToolConnectionSchema,
 } from "./tool-access.js";
 
 describe("tool access validators", () => {
@@ -57,6 +58,27 @@ describe("tool access validators", () => {
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
       expect(parsed.error.issues[0]?.message).toContain("credentialSecretRefs");
+    }
+  });
+
+  it("accepts a bounded remote tool timeout through create and PATCH config", () => {
+    for (const toolTimeoutMs of [1_000, 60_000, 120_000]) {
+      const config = { url: "https://example.test/mcp", toolTimeoutMs };
+      expect(toolTransportConfigSchema.parse(config)).toEqual(config);
+      expect(createToolConnectionSchema.parse({ name: "Remote MCP", transport: "mcp_remote", transportConfig: config }).transportConfig).toEqual(config);
+      expect(updateToolConnectionSchema.parse({ transportConfig: config }).transportConfig).toEqual(config);
+      expect(updateToolConnectionSchema.parse({ config }).config).toEqual(config);
+    }
+    expect(updateToolConnectionSchema.parse({ transportConfig: { url: "https://example.test/mcp" } }).transportConfig)
+      .toEqual({ url: "https://example.test/mcp" });
+  });
+
+  it("rejects invalid remote tool timeouts at each connection config boundary", () => {
+    for (const toolTimeoutMs of [null, "60000", 999, 120_001, 1_000.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(toolTransportConfigSchema.safeParse({ toolTimeoutMs }).success, String(toolTimeoutMs)).toBe(false);
+      expect(createToolConnectionSchema.safeParse({ name: "Remote MCP", config: { toolTimeoutMs } }).success, String(toolTimeoutMs)).toBe(false);
+      expect(updateToolConnectionSchema.safeParse({ config: { toolTimeoutMs } }).success, String(toolTimeoutMs)).toBe(false);
+      expect(updateToolConnectionSchema.safeParse({ transportConfig: { toolTimeoutMs } }).success, String(toolTimeoutMs)).toBe(false);
     }
   });
 

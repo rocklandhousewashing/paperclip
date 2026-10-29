@@ -7,7 +7,6 @@ import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { heartbeatRuns, type Db } from "@paperclipai/db";
 import type { PaperclipSkillEntry } from "@paperclipai/adapter-utils/server-utils";
-import { isToolConnectionAttentionHealth } from "@paperclipai/shared";
 import {
   PAPERCLIP_OPERATIONAL_SKILL_KEY,
   resolvePaperclipDesiredSkillNames,
@@ -218,17 +217,14 @@ export async function resolveNativeRuntimeMcpSnapshot(input: { db: Db; agent: Pi
     responsibleUserId: runIdentity?.responsibleUserId ?? null,
     connections: effective.installedConnections,
   });
-  // App access is optional runtime context. Keep usable assignments pinned, but
-  // do not stop unrelated work because an assigned app needs attention.
+  // Keep authorized assignments pinned across transient health failures.
+  // Invocation still validates the effective credential and access grant.
   const githubBotConnectionIds = await githubBotConnectionIdsForRun(input.db, input.agent.companyId, input.agent.id, input.runId);
   const spekoConnectionIds = hasVoiceConnection ? new Set((await spekoToolsForSession(input.db, { companyId: input.agent.companyId, agentId: input.agent.id, runId: input.runId, issueId: typeof runIdentity?.contextSnapshot?.issueId === "string" ? runIdentity.contextSnapshot.issueId : typeof runIdentity?.contextSnapshot?.taskId === "string" ? runIdentity.contextSnapshot.taskId : null, identityContextId: runIdentity?.activeIdentityContextId })).map(tool => tool.connectionId)) : new Set<string>();
   const availableConnectionIds = new Set(resolvedInstalledConnections.filter((connection) =>
     permitted.has(connection.id)
     && connection.status === "active"
     && connection.enabled
-    && (Boolean(runIdentity?.activeIdentityContextId) && (connection.config?.sourceTemplateKey === "github" || connection.transportConfig?.sourceTemplateKey === "github")
-      || connection.credentialPolicy === "per_user"
-      || !isToolConnectionAttentionHealth(connection.healthStatus))
     && (["mcp_remote", "local_stdio"].includes(connection.transport) || isBrowserUseConnection(connection) || githubBotConnectionIds.has(connection.id) || spekoConnectionIds.has(connection.id))
   ).map((connection) => connection.id));
   const assignment = {

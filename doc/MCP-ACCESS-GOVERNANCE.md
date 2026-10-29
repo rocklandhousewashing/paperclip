@@ -195,6 +195,29 @@ curl -fsS -X PATCH -H "Authorization: Bearer $BOARD_API_KEY" -H "Content-Type: a
 
 Connection statuses: `draft`, `active`, `disabled`, `archived`. Health statuses: `ok`, `unchecked`, `degraded`, `failed`, `error`, `missing_secret`.
 
+### Remote tool call timeouts and recovery
+
+Remote MCP calls default to 10 seconds. Set an optional integer `toolTimeoutMs`
+(1,000–120,000 milliseconds) in a connection's `transportConfig` or legacy
+`config` through `PATCH /api/tool-connections/:id`. These objects are replaced,
+not merged: preserve the existing URL and other transport fields in the PATCH.
+For example, a complete transport config can contain:
+
+```json
+{ "transportConfig": { "url": "https://mcp.example.com/mcp", "toolTimeoutMs": 60000 } }
+```
+
+A smaller caller timeout still wins. Without a connection timeout, the existing
+caller override (up to 60 seconds) remains supported. The approved-action path
+also retains its 60-second execution budget.
+
+Health records the last probe or call outcome. A timeout or transport error does
+not remove active assigned tools from current sessions or later runs. A later
+successful call restores health to `ok`; disabled connections, quarantined tools,
+and invalid grants remain blocked by their existing checks. MCP error results
+retain their content and `isError`; absent or invalid `structuredContent` is
+omitted rather than serialized as `null`.
+
 ## Catalog and risk classification
 
 Each tool discovered on a connection becomes a **catalog entry** with a risk level Paperclip infers from MCP annotations:

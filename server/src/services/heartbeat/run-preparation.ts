@@ -25,7 +25,6 @@ import {
   CONNECTION_INTENT_AGENT_GUIDANCE,
   CONNECTION_RUNTIME_TOOL_NAMES,
   envBindingSchema,
-  isToolConnectionAttentionHealth,
   type ChatProvider,
   type RoutineRevisionSnapshotV1,
   type SourceTrustMetadata,
@@ -990,11 +989,6 @@ export async function buildPaperclipRuntimeMcpServers(input: {
       permittedConnectionIds.has(connection.id) &&
       connection.status === "active" &&
       connection.enabled &&
-      ((Boolean(runIdentity?.activeIdentityContextId) &&
-        (connection.config?.sourceTemplateKey === "github" ||
-          connection.transportConfig?.sourceTemplateKey === "github")) ||
-        connection.credentialPolicy === "per_user" ||
-        !isToolConnectionAttentionHealth(connection.healthStatus)) &&
       (connection.transport === "mcp_remote" ||
         connection.transport === "local_stdio" || isBrowserUseConnection(connection) || githubBotConnectionIds.has(connection.id) || spekoConnectionIds.has(connection.id)),
   );
@@ -1428,7 +1422,6 @@ export async function createManagedMcpRunConfig(input: {
       connectionId: toolConnectionInstalls.connectionId,
       enabled: toolConnections.enabled,
       status: toolConnections.status,
-      healthStatus: toolConnections.healthStatus,
       config: toolConnections.config,
       transportConfig: toolConnections.transportConfig,
     })
@@ -1473,10 +1466,7 @@ export async function createManagedMcpRunConfig(input: {
           .filter(
             (install) =>
               install.enabled &&
-              install.status === "active" &&
-              !["degraded", "failed", "error", "missing_secret"].includes(
-                install.healthStatus,
-              ),
+              install.status === "active",
           )
           .map((install) => ({
             id: install.connectionId,

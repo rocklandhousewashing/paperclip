@@ -652,6 +652,124 @@ describeEmbeddedPostgres("tool gateway acceptance", () => {
     }
   });
 
+  it.each([
+    ["missing", undefined],
+    ["null", null],
+    ["string", "invalid"],
+    ["array", ["invalid"]],
+    ["number", 42],
+    ["object", { assetId: "fixture-asset" }],
+  ])("normalizes %s structuredContent and propagates remote errors", async (_label, structuredContent) => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { run } = await createIssueAndRun(db, company.id, agent.id);
+    await createRemoteMcpTool(db, company.id, { riskLevel: "read" });
+    await allowAllToolsForAgent(db, company.id, agent.id);
+    let providerError = false;
+    const gateway = createTestToolGatewayService(db, {
+      remoteHttpRequest: async (_url, init) => new Response(JSON.stringify({
+        jsonrpc: "2.0", id: JSON.parse(String(init.body)).id, result: {
+          content: [{ type: "text", text: "Image generation failed: invalid image dimensions" }],
+          ...(structuredContent === undefined ? {} : { structuredContent }),
+          isError: providerError,
+        },
+      }), { headers: { "content-type": "application/json" } }),
+    });
+    const session = await gateway.createSession({ companyId: company.id, agentId: agent.id, runId: run.id });
+    const tool = (await gateway.listToolsForSession(session.token)).find((item) => item.providerType === "mcp_remote_http")!;
+    const response = await gateway.executeTool({ sessionToken: session.token, tool: tool.name, parameters: { key: "a", value: "b" } });
+    const result = response.result as { content: string; data: Record<string, unknown> };
+    expect(result.content).toBe("Image generation failed: invalid image dimensions");
+    expect(result.data.isError).toBe(false);
+    expect(result.data.content).toEqual([{ type: "text", text: result.content }]);
+    if (_label === "object") expect(result.data.structuredContent).toEqual(structuredContent);
+    else expect(result.data).not.toHaveProperty("structuredContent");
+    providerError = true;
+    // The target turns provider failures into failed invocation audits and a
+    // typed error; the MCP route maps that error to isError without losing text.
+    await expect(gateway.executeTool({ sessionToken: session.token, tool: tool.name, parameters: { key: "a", value: "b" } }))
+      .rejects.toMatchObject({ reasonCode: "tool_error", message: "Image generation failed: invalid image dimensions" });
+  });
+
+  it.each([
+    { configured: undefined, requested: undefined, expected: 10_000 },
+    { configured: undefined, requested: 90_000, expected: 60_000 },
+    { configured: 60_000, requested: undefined, expected: 60_000 },
+    { configured: 120_000, requested: undefined, expected: 120_000 },
+    { configured: 60_000, requested: 1_000, expected: 1_000 },
+    { configured: 60_000, requested: 90_000, expected: 60_000 },
+    { configured: 900_000, requested: undefined, expected: 120_000 },
+    { configured: -1, requested: undefined, expected: 1_000 },
+    { configured: "60000", requested: undefined, expected: 10_000 },
+  ])("honors the remote connection timeout budget $configured / $requested", async ({ configured, requested, expected }) => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { run } = await createIssueAndRun(db, company.id, agent.id);
+    await createRemoteMcpTool(db, company.id, {
+      riskLevel: "read", connectionConfig: configured === undefined ? {} : { toolTimeoutMs: configured },
+    });
+    await allowAllToolsForAgent(db, company.id, agent.id);
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const gateway = createTestToolGatewayService(db, {
+      remoteHttpRequest: async (_url, init) => {
+        expect(init.signal?.aborted).toBe(false);
+        // Capture the actual abort timer without waiting 120 seconds or faking
+        // the database driver's clocks. Trigger it to exercise timeout handling.
+        const call = setTimeoutSpy.mock.calls.findLast((call) => call[1] === expected);
+        expect(call).toBeDefined();
+        const index = setTimeoutSpy.mock.calls.indexOf(call!);
+        timer = setTimeoutSpy.mock.results[index]!.value;
+        (call![0] as () => void)();
+        expect(init.signal?.aborted).toBe(true);
+        throw new DOMException("Timed out", "AbortError");
+      },
+    });
+    try {
+      const session = await gateway.createSession({ companyId: company.id, agentId: agent.id, runId: run.id });
+      const tool = (await gateway.listToolsForSession(session.token)).find((item) => item.providerType === "mcp_remote_http")!;
+      await expect(gateway.executeTool({
+        sessionToken: session.token, tool: tool.name, parameters: { key: "a", value: "b" }, timeoutMs: requested,
+      })).rejects.toMatchObject({ reasonCode: "tool_timeout", status: 504 });
+    } finally {
+      if (timer) clearTimeout(timer);
+      setTimeoutSpy.mockRestore();
+    }
+  });
+
+  it.each(["timeout", "transport"])("retains assigned tools after a %s failure and clears health on success", async (failure) => {
+    const company = await createCompany(db);
+    const agent = await createAgent(db, company.id);
+    const { run } = await createIssueAndRun(db, company.id, agent.id);
+    const { connection } = await createRemoteMcpTool(db, company.id, { riskLevel: "read" });
+    await allowAllToolsForAgent(db, company.id, agent.id);
+    let calls = 0;
+    const gateway = createTestToolGatewayService(db, {
+      remoteHttpRequest: async (_url, init) => {
+        if (++calls === 1) {
+          if (failure === "timeout") throw new DOMException("Timed out", "AbortError");
+          throw new TypeError("Connection reset");
+        }
+        return new Response(JSON.stringify({ jsonrpc: "2.0", id: JSON.parse(String(init.body)).id, result: { content: [{ type: "text", text: "recovered" }] } }),
+          { headers: { "content-type": "application/json" } });
+      },
+    });
+    const session = await gateway.createSession({ companyId: company.id, agentId: agent.id, runId: run.id });
+    const tool = (await gateway.listToolsForSession(session.token)).find((item) => item.connectionId === connection.id)!;
+    const input = { sessionToken: session.token, tool: tool.name, parameters: { key: "a", value: "b" } };
+    await expect(gateway.executeTool(input)).rejects.toMatchObject({ reasonCode: failure === "timeout" ? "tool_timeout" : "mcp_remote_fetch_failed" });
+    const [unhealthy] = await db.select().from(toolConnections).where(eq(toolConnections.id, connection.id));
+    expect(unhealthy.healthStatus).toBe("error");
+    expect(await gateway.listToolsForSession(session.token)).toContainEqual(expect.objectContaining({ name: tool.name }));
+    const next = await createIssueAndRun(db, company.id, agent.id);
+    const nextSession = await gateway.createSession({ companyId: company.id, agentId: agent.id, runId: next.run.id });
+    expect(await gateway.listToolsForSession(nextSession.token)).toContainEqual(expect.objectContaining({ name: tool.name }));
+    await expect(gateway.executeTool(input)).resolves.toMatchObject({ result: { content: "recovered" } });
+    const [healthy] = await db.select().from(toolConnections).where(eq(toolConnections.id, connection.id));
+    expect(healthy).toMatchObject({ healthStatus: "ok", healthMessage: "Remote MCP server responded to tools/call." });
+    await expect(gateway.executeTool({ ...input, sessionToken: nextSession.token })).resolves.toMatchObject({ result: { content: "recovered" } });
+  });
+
   it("exposes a named gateway with scoped bearer-token auth and revocation", async () => {
     const company = await createCompany(db);
     const remote = await startFakeRemoteMcpServer(async ({ body }) => ({
@@ -2046,7 +2164,7 @@ rl.on("line", (line) => {
       toolName: "kv_set",
       connectionEnabled: false,
     });
-    await createRemoteMcpTool(db, company.id, {
+    const unhealthy = await createRemoteMcpTool(db, company.id, {
       applicationKey: "unhealthy-demo",
       connectionName: "Unhealthy Demo",
       toolName: "kv_set",
@@ -2065,12 +2183,13 @@ rl.on("line", (line) => {
 
     const connectedTools = (await gateway.listToolsForSession(session.token))
       .filter((tool) => tool.providerType === "mcp_remote_http");
-    expect(connectedTools).toHaveLength(2);
+    expect(connectedTools).toHaveLength(3);
     expect(connectedTools.map((tool) => tool.catalogEntryId).sort()).toEqual([
       first.catalogEntry.id,
       second.catalogEntry.id,
+      unhealthy.catalogEntry.id,
     ].sort());
-    expect(new Set(connectedTools.map((tool) => tool.name)).size).toBe(2);
+    expect(new Set(connectedTools.map((tool) => tool.name)).size).toBe(3);
     expect(connectedTools.map((tool) => tool.name)).toEqual(expect.arrayContaining([
       expect.stringMatching(new RegExp(`^mcp\\.kv-demo-${first.connection.id.replace(/-/g, "").slice(0, 8)}:kv-set$`)),
       expect.stringMatching(new RegExp(`^mcp\\.kv-demo-${second.connection.id.replace(/-/g, "").slice(0, 8)}:kv-set$`)),

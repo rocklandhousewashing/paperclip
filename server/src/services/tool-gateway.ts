@@ -741,6 +741,17 @@ function timeoutMs(value: number | undefined) {
   );
 }
 
+function remoteToolTimeoutMs(connection: typeof toolConnections.$inferSelect, requested: number | undefined) {
+  const configured = connection.transportConfig?.toolTimeoutMs ?? connection.config?.toolTimeoutMs;
+  // Preserve the existing caller override for unconfigured connections. Validate
+  // API writes separately, and bound legacy/imported config at execution too.
+  if (typeof configured !== "number" || !Number.isFinite(configured)) return timeoutMs(requested);
+  const budget = Math.max(1_000, Math.min(120_000, Math.floor(configured)));
+  return typeof requested === "number" && Number.isFinite(requested)
+    ? Math.min(budget, Math.max(1, Math.floor(requested)))
+    : budget;
+}
+
 function sessionTtlMs(value: number | undefined) {
   if (!Number.isFinite(value)) return DEFAULT_SESSION_TTL_MS;
   return Math.max(
@@ -1288,15 +1299,8 @@ export function createToolGatewayService(
       inArray(toolConnections.transport, ["mcp_remote", "local_stdio", "rest_api"]),
       eq(toolConnections.status, "active"),
       eq(toolConnections.enabled, true),
-      // A personal connection has no company-level credential to probe. A
-      // credential-less health sweep can therefore mark it as errored even
-      // while the responsible user's grant is valid. Keep its cached active
-      // catalog discoverable; execution resolves and validates that user's
-      // grant, and a successful call restores the shared health indicator.
-      or(
-        inArray(toolConnections.healthStatus, ["ok", "healthy"]),
-        eq(toolConnections.credentialPolicy, "per_user"),
-      ),
+      // Health records the last attempt, not permission. Keep authorized active
+      // catalogs available after transient failures; execution checks grants.
       eq(toolApplications.companyId, companyId),
       inArray(toolApplications.type, ["mcp_http", "mcp_stdio", "rest_api"]),
       eq(toolApplications.status, "active"),
@@ -5939,7 +5943,7 @@ export function createToolGatewayService(
     session: ToolGatewaySession,
     tool: ToolGatewayDescriptor,
     parameters: unknown,
-    ms: number,
+    requestedTimeoutMs: number | undefined,
     invocationId: string,
     callerHeaders?: ExecuteGatewayToolInput["callerHeaders"],
     useDefaultTimeout = false,
@@ -5948,10 +5952,11 @@ export function createToolGatewayService(
       session,
       tool,
     );
+    let ms = remoteToolTimeoutMs(connection, requestedTimeoutMs);
     // Recheck immediately before dispatch, including previously approved calls
     // and connections whose stored grant/catalog predates scope reduction.
     assertGoogleChatToolArgumentsSupported(connection, entry.toolName, parameters);
-    if (useDefaultTimeout && isRailwayConnection(connection) && entry.toolName === `${RAILWAY_TOOL_PREFIX}run-command`) {
+    if (useDefaultTimeout && connection.transportConfig?.toolTimeoutMs === undefined && connection.config?.toolTimeoutMs === undefined && isRailwayConnection(connection) && entry.toolName === `${RAILWAY_TOOL_PREFIX}run-command`) {
       ms = railwayCommandBudgetMs(parameters);
     }
     const grant = await resolveConnectionGrant(session, connection);
@@ -7278,7 +7283,7 @@ export function createToolGatewayService(
               args.session,
               args.tool,
               args.parameters,
-              executionTimeoutMs,
+              args.timeoutMs,
               args.invocationId,
               undefined,
               args.timeoutMs === undefined,
@@ -10642,7 +10647,7 @@ export function createToolGatewayService(
                 session,
                 tool,
                 effectiveParameters,
-                executionTimeoutMs,
+                input.timeoutMs,
                 invocationId,
                 input.callerHeaders,
                 input.timeoutMs === undefined,
