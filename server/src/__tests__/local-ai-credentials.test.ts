@@ -7,6 +7,15 @@ vi.mock("../services/local-ai-credential-file.js", () => ({ readLocalAiCredentia
 vi.mock("node:fs/promises", () => ({ default: { readFile: mocks.readFile } }));
 afterEach(() => { vi.resetAllMocks(); vi.unstubAllGlobals(); });
 describe("explicit local subscription import", () => {
+  it("retains the complete refresh-capable Claude bundle without a provider request", async () => {
+    const bundle = JSON.stringify({ claudeAiOauth: { accessToken: "fixture-access", refreshToken: "fixture-refresh", expiresAt: 12345 } });
+    mocks.credentialFile.mockResolvedValue(bundle);
+    const request = vi.fn(); vi.stubGlobal("fetch", request);
+    await expect(readVerifiedLocalAiCredential("anthropic", "/isolated/claude")).resolves.toBe(bundle);
+    expect(request).not.toHaveBeenCalled();
+    expect(mocks.claude).not.toHaveBeenCalled();
+  });
+
   it("verifies Claude only from the selected isolated home, never the host account", async () => {
     mocks.credentialFile.mockResolvedValue(JSON.stringify({ claudeAiOauth: { accessToken: "isolated-claude" } }));
     await expect(readVerifiedLocalAiCredential("anthropic", "/isolated/claude")).resolves.toBe("isolated-claude");

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
-import { type Db, companySecrets, connectionGrants } from "@paperclipai/db";
+import { type Db, companySecrets, connectionGrants, toolConnections } from "@paperclipai/db";
 import {
   AI_CONNECTION_CAPABILITIES,
   aiConnectionMetadataSchema, aiRoutingHarness,
@@ -19,6 +19,7 @@ import { decideCodexAuthMerge, withAccountHomeSecretMutationLock } from "@paperc
 import { WORKSPACE_RESTORE_LOCK_TIMEOUT_CODE } from "@paperclipai/adapter-utils/workspace-restore-merge";
 import type { AdapterExecutionTarget } from "@paperclipai/adapter-utils/execution-target";
 import { runAdapterExecutionTargetProcess } from "@paperclipai/adapter-utils/execution-target";
+import { readLocalAiCredentialFile } from "./local-ai-credential-file.js";
 import { decideGrokAuthMerge } from "@paperclipai/adapter-grok-local/server";
 
 export function isAiConnectionBusy(error: unknown): error is HttpError {
@@ -253,9 +254,6 @@ export async function prepareManagedAiRuntime(
     runnerProvider: input.config.provider,
     acpxAgent: input.config.acpxAgent,
   });
-  const subscriptionFile =
-    selection.attribution.method === "subscription" &&
-    input.binding.provider !== "anthropic";
   let home: string | undefined;
   try {
     const selectedGrantId = selection.grant.id;
@@ -299,6 +297,13 @@ export async function prepareManagedAiRuntime(
       }
       throw unprocessable("The AI credential changed during preparation; retry this execution");
     })();
+    const connectionEpoch = selection.connection.updatedAt.getTime();
+    if (selection.attribution.method === "subscription" && input.binding.provider === "anthropic" &&
+        /^\s*[\[{]/.test(value) && claudeCredentialExpiry(value) === null) {
+      throw unprocessable("The Claude subscription credential bundle is invalid", { code: "ai_connection_credential_invalid" });
+    }
+    const subscriptionFile = selection.attribution.method === "subscription" &&
+      (input.binding.provider !== "anthropic" || claudeCredentialExpiry(value) !== null);
     home = await mkdtemp(
       path.join(
         os.tmpdir(),
@@ -316,7 +321,7 @@ export async function prepareManagedAiRuntime(
       AI_CONNECTION_CAPABILITIES[input.binding.provider].methods[
         selection.attribution.method
       ]!;
-    const authFile = path.join(providerHome, "auth.json");
+    const authFile = path.join(providerHome, input.binding.provider === "anthropic" ? ".credentials.json" : "auth.json");
     if (harness === "codex_local")
       await writeFile(
         path.join(providerHome, "config.toml"),
@@ -388,7 +393,7 @@ export async function prepareManagedAiRuntime(
       home,
       cleanup: async () => {
         if (subscriptionFile) {
-          const refreshed = await readFile(authFile, "utf8");
+          const refreshed = await readLocalAiCredentialFile(authFile);
           if (refreshed !== value) {
             // A quota exchange can hold this company lock for 60 seconds.
             // Retry its 30-second acquisition timeout without discarding the
@@ -411,14 +416,19 @@ export async function prepareManagedAiRuntime(
               const ref = grant.credentialSecretRefs.find(
                 (r) => r.configPath === "ai.credential",
               );
-              if (!ref) return;
+              if (!ref || ref.secretId !== credentialRef?.secretId || ref.versionSelector !== credentialRef.versionSelector) return;
+              const [connection] = await tx.select({ updatedAt: toolConnections.updatedAt })
+                .from(toolConnections).where(and(eq(toolConnections.id, selection.connection.id), eq(toolConnections.companyId, input.companyId))).for("update");
+              // Explicit reconnect changes the account lineage, even when the
+              // stale execution refreshed to a later expiry than its replacement.
+              if (!connection || connection.updatedAt.getTime() !== connectionEpoch) return;
               // Lock the referenced secret row for the rest of this
               // transaction. The grant-row lock above does not cover it,
               // so an authorized rotation of this secret could otherwise
               // land between the read and the write below and be
               // overwritten by this stale write-back.
-              await tx
-                .select({ id: companySecrets.id })
+              const [currentSecret] = await tx
+                .select({ id: companySecrets.id, epoch: companySecrets.aiSessionEpoch })
                 .from(companySecrets)
                 .where(
                   and(
@@ -427,6 +437,7 @@ export async function prepareManagedAiRuntime(
                   ),
                 )
                 .for("update");
+              if (!currentSecret || currentSecret.epoch !== freshness?.epoch) return;
               const current = await aiConnectionService(
                 tx as unknown as Db,
               ).credential({ ...selection, grant });
@@ -436,7 +447,9 @@ export async function prepareManagedAiRuntime(
               );
               await writeFile(destination, current, { mode: 0o600 });
               const decision =
-                input.binding.provider === "openai"
+                input.binding.provider === "anthropic"
+                  ? decideClaudeCredentialMerge(refreshed, current)
+                  : input.binding.provider === "openai"
                   ? await decideCodexAuthMerge(authFile, destination, {
                       errorLabel: "AI account refresh",
                     })
@@ -495,4 +508,26 @@ export async function withManagedAiProbe<T>(
       throw error;
     })
     : run();
+}
+
+function claudeCredentialExpiry(raw: string): number | null {
+  try {
+    const oauth = JSON.parse(raw)?.claudeAiOauth;
+    return typeof oauth?.accessToken === "string" && oauth.accessToken.length > 0 &&
+        typeof oauth?.refreshToken === "string" && oauth.refreshToken.length > 0 &&
+        typeof oauth?.expiresAt === "number" && Number.isFinite(oauth.expiresAt)
+      ? oauth.expiresAt
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Return the same write-back decision code used by the provider merge helpers. */
+function decideClaudeCredentialMerge(candidate: string, current: string): number {
+  const candidateExpiry = claudeCredentialExpiry(candidate);
+  const currentExpiry = claudeCredentialExpiry(current);
+  return candidateExpiry !== null && currentExpiry !== null && candidateExpiry > currentExpiry
+    ? 10
+    : 0;
 }
