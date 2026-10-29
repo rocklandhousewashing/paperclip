@@ -416,12 +416,16 @@ export async function prepareManagedAiRuntime(
               const ref = grant.credentialSecretRefs.find(
                 (r) => r.configPath === "ai.credential",
               );
-              if (!ref || ref.secretId !== credentialRef?.secretId || ref.versionSelector !== credentialRef.versionSelector) return;
-              const [connection] = await tx.select({ updatedAt: toolConnections.updatedAt })
-                .from(toolConnections).where(and(eq(toolConnections.id, selection.connection.id), eq(toolConnections.companyId, input.companyId))).for("update");
-              // Explicit reconnect changes the account lineage, even when the
-              // stale execution refreshed to a later expiry than its replacement.
-              if (!connection || connection.updatedAt.getTime() !== connectionEpoch) return;
+              if (!ref) return;
+              if (input.binding.provider === "anthropic") {
+                if (ref.secretId !== credentialRef?.secretId || ref.versionSelector !== credentialRef.versionSelector) return;
+                const [connection] = await tx.select({ updatedAt: toolConnections.updatedAt })
+                  .from(toolConnections).where(and(eq(toolConnections.id, selection.connection.id), eq(toolConnections.companyId, input.companyId))).for("update");
+                // Claude reconnect explicitly supersedes the old refresh bundle.
+                // Codex/Grok instead retain their provider identity/freshness
+                // merge below, including newer same-account reconnect refreshes.
+                if (!connection || connection.updatedAt.getTime() !== connectionEpoch) return;
+              }
               // Lock the referenced secret row for the rest of this
               // transaction. The grant-row lock above does not cover it,
               // so an authorized rotation of this secret could otherwise
@@ -437,7 +441,7 @@ export async function prepareManagedAiRuntime(
                   ),
                 )
                 .for("update");
-              if (!currentSecret || currentSecret.epoch !== freshness?.epoch) return;
+              if (input.binding.provider === "anthropic" && (!currentSecret || currentSecret.epoch !== freshness?.epoch)) return;
               const current = await aiConnectionService(
                 tx as unknown as Db,
               ).credential({ ...selection, grant });

@@ -1378,8 +1378,8 @@ console.log(JSON.stringify({ type: "result", subtype: "success", result: "hello"
     expect(agent.runtimeConfig.aiConnection).toBeUndefined();
   });
   it("runs two Claude subscription executions for the same grant at the same time", async () => {
-    // Claude writes no auth file back to the grant, so two runs share no
-    // mutable state and must not wait for each other.
+    // These plain Claude setup-token fixtures write no auth file back to the
+    // grant, so the two runs share no mutable state and must not wait.
     const subscription = { ...input, binding: { ...binding, method: "subscription" as const }, responsibleUserId: "alice", config: { model: "same-model" } };
     const account = (await service.list(companyId, "alice")).find(account => account.provider === "anthropic" && account.method === "subscription")!;
     await service.setDefault(companyId, "alice", account.grantId);
@@ -1437,6 +1437,24 @@ console.log(JSON.stringify({ type: "result", subtype: "success", result: "hello"
     // The newer refresh persists to the grant it started from.
     expect(await service.credential(await service.select({ ...runInput, userId: "alice" }))).toBe(auth("later-refresh", 13));
   });
+  it("discards an old Claude runtime refresh after an explicit same-account reconnect", async () => {
+    const userId = "claude-reconnect-refresh-user";
+    await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
+    const auth = (expiresAt: number) => JSON.stringify({ claudeAiOauth: { accessToken: `fixture-access-${expiresAt}`, refreshToken: `fixture-refresh-${expiresAt}`, expiresAt } });
+    const intent = { provider: "anthropic" as const, method: "subscription" as const, name: "Claude reconnect fixture", ownership: "personal" as const, agentIds: [], allAgents: true, loginSessionId: "fixture" };
+    const saved = await service.save(companyId, userId, intent, auth(100));
+    const runInput = { ...input, adapterType: "claude_local", responsibleUserId: userId, binding: { provider: "anthropic", method: "subscription", mode: "responsible_user" } as const, config: {} };
+    const first = await prepareManagedAiRuntime(db, runInput);
+    await writeFile(path.join(first.home, "provider", ".credentials.json"), auth(200));
+    await first.cleanup();
+    expect(await service.credential(await service.select({ ...runInput, userId }))).toBe(auth(200));
+    const stale = await prepareManagedAiRuntime(db, runInput);
+    await service.save(companyId, userId, { ...intent, connectionId: saved.connectionId }, auth(300));
+    await writeFile(path.join(stale.home, "provider", ".credentials.json"), auth(900));
+    await stale.cleanup();
+    expect(await service.credential(await service.select({ ...runInput, userId }))).toBe(auth(300));
+  });
+
   it("resolves two concurrent OpenAI subscription write-backs by freshness, not by order", async () => {
     const userId = "concurrent-freshness-user";
     await db.insert(companyMemberships).values({ companyId, principalId: userId, principalType: "user", status: "active", membershipRole: "member" });
