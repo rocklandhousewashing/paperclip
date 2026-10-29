@@ -31,7 +31,7 @@ const head = git("rev-parse", "HEAD");
 if (JSON.parse(readFileSync(resolve(root, "server/dist/build-info.json"), "utf8")).commit !== head) {
   throw new Error("Server build stamp must match the clean source head");
 }
-const version = "2026.1023.0-jarvis.port.2";
+const version = "2026.1023.0-jarvis.port.3";
 const stage = resolve(output, "stage");
 const dist = resolve(output, "dist");
 mkdirSync(dist, { recursive: true });
