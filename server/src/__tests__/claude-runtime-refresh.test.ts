@@ -64,7 +64,21 @@ describe("Claude managed refresh port", () => {
     const older = await runtime(), newer = await runtime();
     await refresh(older, 200); await refresh(newer, 300);
     await Promise.all([newer.cleanup(), older.cleanup()]);
-    expect(saved).toBe(bundle(300)); expect(mocks.rotate).toHaveBeenCalledTimes(1);
+    expect(saved).toBe(bundle(300));
+    // Credential files are read before acquiring the mutation lock. Either
+    // cleanup can arrive first; successful writes must still be monotonic.
+    const writtenExpiries = mocks.rotate.mock.calls.map(([, update]) => JSON.parse(update.value).claudeAiOauth.expiresAt);
+    expect([[300], [200, 300]]).toContainEqual(writtenExpiries);
+    await expect(access(older.home)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(access(newer.home)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+  it("discards an older cleanup after the newer refresh has been saved", async () => {
+    const older = await runtime(), newer = await runtime();
+    await refresh(older, 200); await refresh(newer, 300);
+    await newer.cleanup();
+    await older.cleanup();
+    expect(saved).toBe(bundle(300));
+    expect(mocks.rotate).toHaveBeenCalledTimes(1);
     await expect(access(older.home)).rejects.toMatchObject({ code: "ENOENT" });
   });
   it.each(["connection", "epoch", "secret", "revoked"])("discards old lineage after %s changes even with a newer expiry", async change => {
