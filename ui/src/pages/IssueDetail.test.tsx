@@ -394,6 +394,16 @@ vi.mock("../components/IssueChatThread", () => ({
   },
 }));
 
+// This page suite replaces the router and leaf widgets. The reviewed-HTML
+// section owns real router/query hooks; its dedicated MemoryRouter suite covers
+// version links, descriptor loading and failures. Keep that boundary explicit
+// here while asserting the page supplies the correct task/company scope.
+vi.mock("../components/IssueReviewedHtmlSection", () => ({
+  IssueReviewedHtmlSection: ({ companyId, issueId }: { companyId: string; issueId: string }) => (
+    <div data-testid="reviewed-html-section" data-company-id={companyId} data-issue-id={issueId} />
+  ),
+}));
+
 // The task chat thread pulls in the MarkdownEditor composer, whose @mdxeditor
 // dependency cannot load under jsdom's CSSOM. The stub keeps the suite
 // unit-scoped but still renders the threadHeader JSX (the issue header row
@@ -1423,6 +1433,22 @@ describe("IssueDetail", () => {
     mockRouteParams.companyPrefix = "PAP";
   });
 
+  it.each([false, true])("scopes the reviewed preview to the loaded task (classic=%s)", async (classic) => {
+    const issue = createIssue();
+    mockIssuesApi.get.mockResolvedValue(issue);
+    mockInstanceSettingsApi.getExperimental.mockResolvedValue({
+      enableStreamlinedUi: true,
+      enableClassicTaskInterface: classic,
+    });
+    await act(async () => root.render(<QueryClientProvider client={queryClient}><IssueDetail /></QueryClientProvider>));
+    await waitForAssertion(() => {
+      const sections = container.querySelectorAll('[data-testid="reviewed-html-section"]');
+      expect(sections).toHaveLength(1);
+      expect(sections[0]?.getAttribute("data-company-id")).toBe(issue.companyId);
+      expect(sections[0]?.getAttribute("data-issue-id")).toBe(issue.id);
+    });
+  });
+
   it("clears only the monitor after confirmation and refreshes the task", async () => {
     const nextCheckAt = new Date(Date.now() + 60_000).toISOString();
     const preservedPolicy = { mode: "normal", commentRequired: false, stages: [{ type: "review", approvalsNeeded: 1, participants: [{ type: "user", userId: "reviewer-1" }] }], maxReviewRounds: 4, authorizationPolicy: { assignmentPolicy: { mode: "protected" } } };
@@ -1524,6 +1550,7 @@ describe("IssueDetail", () => {
     await flushReact();
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockIssuesApi.markRead).toHaveBeenCalledWith(canonical.id);
+    expect(container.querySelector('[data-testid="reviewed-html-section"]')).toBeNull();
     const [breadcrumbs] = mockSetBreadcrumbs.mock.calls.at(-1)!;
     expect(breadcrumbs[0].leading.type).toBe(AgentAvatar);
     expect(breadcrumbs[0].leading.props).toMatchObject({ agent, size: 24 });
