@@ -323,8 +323,10 @@ export function classifyRunLiveness(input: RunLivenessClassificationInput): RunL
     return output("needs_followup", input.errorCode ? `Run interrupted (${input.errorCode})` : "Run interrupted");
   }
 
-  if (input.runStatus === "failed" && input.authenticationRepairRequested && isAiAuthenticationRepairable(input)) {
-    return output("blocked", "Waiting for provider authentication repair", "Complete the connection request to continue this task");
+  if (input.runStatus === "failed" && (input.errorCode === "claude_auth_required" || (input.authenticationRepairRequested && isAiAuthenticationRepairable(input)))) {
+    return output("blocked", "Waiting for provider authentication repair", input.authenticationRepairRequested
+      ? "Complete the connection request to continue this task"
+      : "Reconnect the Claude account, then explicitly resume this task");
   }
 
   if (input.runStatus !== "succeeded") {

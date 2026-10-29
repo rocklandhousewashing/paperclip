@@ -146,6 +146,20 @@ function createFakeRecovery(): RecoveryEscalationPort {
 }
 
 describe("releaseIssueExecution", () => {
+  it.each(["execution_review_requested", "execution_approval_requested"])("fails closed after Claude auth failure for %s without queuing a provider retry", async wakeReason => {
+    const transaction = createFakeTransaction();
+    const recovery = createFakeRecovery();
+    const run = { ...RUN, errorCode: "claude_auth_required", contextSnapshot: { wakeReason } };
+    const issue = { ...ISSUE, status: "in_review", executionState: { status: "pending", currentParticipant: { type: "agent", agentId: run.agentId } } } as IssueSnapshot;
+    const release = createReleaseIssueExecution({ issueLock: createFakeIssueLock(createFakeHost(), transaction, issue, run), recovery });
+    const result = await release({ companyId: run.companyId, runId: run.id, now: new Date() });
+    expect(result.outcome.kind).toBe("blocked");
+    expect(result.postCommitEffects).toEqual([]);
+    expect(transaction.queueReviewParticipantRecoveryRun).not.toHaveBeenCalled();
+    expect(transaction.queueImmediateRecoveryRun).not.toHaveBeenCalled();
+    expect(recovery.escalateStrandedAssignedIssue).toHaveBeenCalledWith(expect.objectContaining({ latestRun: run, previousStatus: "in_review" }));
+  });
+
   it.each(["closing", "mixed_comments", "explicit_resume", "interaction", "other_source_task", "parent_open"])(
     "checks late completed-delegation mentions without dropping independent input (%s)", async (scenario) => {
       const originalCommentIds = ["closing-comment", "second-comment"];

@@ -694,7 +694,7 @@ export function createHeartbeatRunControl(db: Db, dependencies: HeartbeatRunCont
         now: new Date(),
         // A durable authentication card owns recovery. This covers the review path,
         // while continuation classification blocks periodic generic retries.
-        suppressImmediateRecovery: options.suppressImmediateRecovery || isAiAuthenticationBlocked(source),
+        suppressImmediateRecovery: options.suppressImmediateRecovery || source?.errorCode === "claude_auth_required" || isAiAuthenticationBlocked(source),
       });
       if (options.deferredPostCommitEffects) {
         options.deferredPostCommitEffects.push(...postCommitEffects);

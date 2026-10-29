@@ -210,6 +210,8 @@ export type ReleaseRecoveryReviewParticipantFacts = {
   applies: boolean;
   /** True when the finishing run was itself a review-participant-recovery retry. */
   isExecutionReviewParticipantRecoveryRun: boolean;
+  /** A provider-auth failure requires a board reconnect and must never enqueue another provider run. */
+  sourceRequiresExplicitRecovery: boolean;
 };
 
 export type ReleaseRecoveryImmediateFacts = {
@@ -389,6 +391,7 @@ export function decideReleaseRecovery(facts: ReleaseRecoveryFacts): ReleaseRecov
       return { kind: "blocked_recovery_in_place" };
     }
     const shouldBlock =
+      reviewParticipant.sourceRequiresExplicitRecovery ||
       !shared.recoveryAgentInvokable ||
       !shared.recoveryAgentPresent ||
       reviewParticipant.isExecutionReviewParticipantRecoveryRun;

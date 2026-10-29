@@ -585,6 +585,8 @@ async function runReleaseRecoveryTail(
       applies: reviewParticipantApplies,
       isExecutionReviewParticipantRecoveryRun:
         isExecutionReviewParticipantRecoveryRun(run),
+      sourceRequiresExplicitRecovery:
+        run.errorCode === "claude_auth_required",
     },
     immediate: {
       applies: immediateApplies,

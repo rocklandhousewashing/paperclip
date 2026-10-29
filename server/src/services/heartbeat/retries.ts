@@ -267,6 +267,7 @@ function readTransientRetryNotBeforeFromRun(
 export function readTransientRecoveryContractFromRun(
   run: Pick<typeof heartbeatRuns.$inferSelect, "errorCode" | "resultJson">,
 ) {
+  if (run.errorCode === "claude_auth_required") return null;
   const errorFamily = readHeartbeatRunErrorFamily(run);
   return errorFamily === "transient_upstream" ||
     errorFamily === "provider_quota"
@@ -395,6 +396,9 @@ export function createHeartbeatRetries(db: Db, dependencies: HeartbeatRetryDepen
       delayMs?: number;
     },
   ) {
+    if (run.errorCode === "claude_auth_required") {
+      return { outcome: "not_scheduled" as const, reason: "Reconnect the Claude account before explicitly retrying this issue.", issueId: run.issueId };
+    }
     if (parseObject(agent.adapterConfig).provider === "openai_dot"
         || parseObject(parseObject(parseObject(run.runnerProfileJson).nativeExecutionInput).provider).kind === "openai_dot") {
       return { outcome: "not_scheduled" as const, reason: "Dot external execution must be reconciled before a new assignment; Paperclip cannot confirm its external stop.", issueId: readNonEmptyString(run.contextSnapshot?.issueId) };

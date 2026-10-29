@@ -1,3 +1,4 @@
+import { writeTradingAuthIncident } from "../trading-auth-incident.js";
 import { isAgentAwaitingSetup } from "../../modules/agent-lifecycle/index.js";
 import { isAiAuthenticationBlocked } from "../ai-auth-failure.js";
 import { hasCommittedNativePlanWait } from "../native-runtime/native-plan-wait.js";
@@ -245,6 +246,7 @@ type SuccessfulLatestIssueRun = NonNullable<LatestIssueRun> & {
 
 export type StrandedRecoveryCause =
   | "stranded_assigned_issue"
+  | "claude_auth_required"
   | "deliberate_wait_without_target"
   | "process_lost"
   | "provider_quota"
@@ -302,6 +304,8 @@ function compactRecoveryPresentation(title: string): IssueCommentPresentation {
 
 function recoveryCauseTitle(cause: StrandedRecoveryCause) {
   switch (cause) {
+    case "claude_auth_required":
+      return "Claude authentication required";
     case "process_lost":
       return "retries exhausted";
     case "codex_output_inactivity_monitor":
@@ -397,6 +401,7 @@ function resolveStrandedRecoveryCause(
   latestRun: LatestIssueRun,
   explicitCause?: StrandedRecoveryCause,
 ): StrandedRecoveryCause {
+  if (latestRun?.errorCode === "claude_auth_required") return "claude_auth_required";
   if (explicitCause) return explicitCause;
   if (isProviderQuotaRecovery(latestRun)) return "provider_quota";
   if (latestRun?.errorCode === "process_lost") return "process_lost";
@@ -502,6 +507,7 @@ const NON_RETRYABLE_CONTINUATION_ERROR_CODES = new Set<string>([
   "agent_not_found",
   "budget_blocked",
   "budget_exhausted",
+  "claude_auth_required",
   "issue_paused",
   "issue_dependencies_blocked",
   // This is the fail-closed fallback for exceptions raised before an adapter
@@ -2540,6 +2546,8 @@ export function recoveryService(
       nextAction:
         recoveryCause === SUCCESSFUL_RUN_MISSING_STATE_REASON
           ? "Board operator: inspect the run evidence, then explicitly choose a valid issue disposition, retry the original owner, reassign, or intentionally resolve the task."
+          : recoveryCause === "claude_auth_required"
+            ? "Reconnect this agent's own Claude subscription, verify authentication, then explicitly resume the same source issue once."
           : recoveryCause === "process_lost"
             ? "Board operator: inspect the retry history, then explicitly retry the original owner, reassign, or intentionally resolve the task."
             : recoveryCause === "provider_quota"
@@ -3977,6 +3985,14 @@ export function recoveryService(
       blockedByIssueIds: blockerIds,
     });
     if (!updated) return null;
+    if (recoveryCause === "claude_auth_required" && updated.updatedAt && updated.identifier && input.latestRun?.id && input.latestRun.agentId) {
+      const failedAgent = await getAgent(input.latestRun.agentId);
+      if (failedAgent) await writeTradingAuthIncident({
+        companyId: updated.companyId, agentId: failedAgent.id, agentName: failedAgent.name,
+        issueId: updated.id, issueIdentifier: updated.identifier, runId: input.latestRun.id,
+        errorCode: "claude_auth_required", state: "blocked", blockedTransitionAt: updated.updatedAt,
+      }).catch(() => logger.warn({ issueId: updated.id, runId: input.latestRun?.id }, "failed to write trading auth incident"));
+    }
     if (isProviderQuotaWait) return updated;
     const sourceAssigneePreserved =
       updated.assigneeAgentId === input.issue.assigneeAgentId &&
@@ -4617,10 +4633,17 @@ export function recoveryService(
               participantAgentId,
             )
           : null;
+      const assigneeLatestRunForRecovery = issue.status !== "in_review"
+        ? await getLatestIssueRunForAgent(issue.companyId, issue.id, agentId) : null;
       const executionRecoverySource =
         issue.status === "in_review"
           ? participantLatestRunForRecovery
-          : latestRun;
+          : assigneeLatestRunForRecovery;
+      if (executionRecoverySource?.errorCode === "claude_auth_required" && isUnsuccessfulTerminalIssueRun(executionRecoverySource)) {
+        const updated = await escalateStrandedAssignedIssue({ issue, previousStatus: issue.status as StrandedPreviousStatus, latestRun: executionRecoverySource, recoveryCause: "claude_auth_required" });
+        if (updated) { result.escalated += 1; result.issueIds.push(issue.id); } else { result.skipped += 1; }
+        continue;
+      }
       if (
         executionRecoverySource?.agentId === agentId &&
         (

@@ -281,6 +281,7 @@ const baseReleaseRecoveryFacts: ReleaseRecoveryFacts = {
   reviewParticipant: {
     applies: false,
     isExecutionReviewParticipantRecoveryRun: false,
+    sourceRequiresExplicitRecovery: false,
   },
   immediate: {
     applies: false,
@@ -420,6 +421,18 @@ describe("decideReleaseRecovery", () => {
         shared: { ...baseReleaseRecoveryFacts.shared, isStrandedRecoveryOrigin: true },
       },
       expected: { kind: "blocked_recovery_in_place" },
+    },
+    {
+      name: "blocked: review-participant authentication failure requires explicit recovery",
+      facts: {
+        ...baseReleaseRecoveryFacts,
+        reviewParticipant: {
+          ...baseReleaseRecoveryFacts.reviewParticipant,
+          applies: true,
+          sourceRequiresExplicitRecovery: true,
+        },
+      },
+      expected: { kind: "blocked", notice: "execution_review_participant" },
     },
     {
       name: "blocked: review-participant recovery applies but the finishing run was itself that recovery retry",
