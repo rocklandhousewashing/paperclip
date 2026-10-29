@@ -1184,6 +1184,20 @@ export const issueDocumentKeySchema = z
     "Document key must be lowercase letters, numbers, _ or -",
   );
 
+/** Human owner feedback that returns an in_review issue to its producer. Not an approval. */
+export const ownerRevisionRequestSchema = z
+  .object({
+    body: multilineTextSchema.pipe(z.string().min(1)),
+    clientRequestId: z.string().uuid(),
+    expectedAssigneeUserId: z.string().trim().min(1),
+    producerAgentId: z.string().guid(),
+    documentKey: issueDocumentKeySchema,
+    expectedRevisionId: z.string().guid(),
+  })
+  .strict();
+
+export type OwnerRevisionRequest = z.infer<typeof ownerRevisionRequestSchema>;
+
 export const suggestedTaskDraftSchema = z
   .object({
     clientKey: z.string().trim().min(1).max(120),

@@ -110,6 +110,7 @@ import {
   restoreIssueDocumentRevisionSchema,
   respondIssueThreadInteractionSchema,
   stalledReviewDecisionSchema,
+  ownerRevisionRequestSchema,
   submitIssueThreadInteractionVerdictsSchema,
   updateIssueWorkProductSchema,
   updateDocumentAnnotationThreadSchema,
@@ -302,6 +303,7 @@ import {
   projectReadSqlCondition,
 } from "../services/authorization.js";
 import { stalledReviewDecisionService } from "../services/stalled-review-decisions.js";
+import { ownerRevisionRequestService } from "../services/owner-revision-requests.js";
 import { environmentService } from "../services/environments.js";
 import { environmentRuntimeService } from "../services/environment-runtime.js";
 import { ensurePersonalPrivateProject } from "../services/projects.js";
@@ -398,7 +400,6 @@ const editQueuedCommentSchema = queuedCommentMutationTargetSchema.extend({
 const reorderQueuedCommentsSchema = queuedCommentMutationTargetSchema.extend({
   orderedCommentIds: z.array(z.string().min(1)).max(MAX_ISSUE_COMMENT_LIMIT),
 });
-
 function prefersMinimalIssueUpdateResponse(req: Request) {
   return (req.get("Prefer") ?? "")
     .split(",")
@@ -3404,6 +3405,10 @@ export function issueRoutes(
       agentId: string,
       options: Parameters<ReturnType<typeof heartbeatService>["wakeup"]>[1],
     ) => ReturnType<ReturnType<typeof heartbeatService>["wakeup"]>;
+    ownerRevisionRequestEnqueueWakeup?: (
+      agentId: string,
+      options: Parameters<ReturnType<typeof heartbeatService>["wakeup"]>[1],
+    ) => ReturnType<ReturnType<typeof heartbeatService>["wakeup"]>;
     issueListDiagnostics?: IssueListDiagnostics;
     declineToolActionRequest?: (input: {
       companyId: string;
@@ -3454,6 +3459,8 @@ export function issueRoutes(
   };
   const enqueueStalledReviewDecisionWakeup =
     opts.stalledReviewDecisionEnqueueWakeup ?? heartbeat.wakeup;
+  const enqueueOwnerRevisionRequestWakeup =
+    opts.ownerRevisionRequestEnqueueWakeup ?? heartbeat.wakeup;
   const enqueueRecoveryActionWakeup =
     opts.recoveryActionEnqueueWakeup ?? heartbeat.wakeup;
   const feedback = feedbackService(db);
@@ -13526,6 +13533,170 @@ export function issueRoutes(
     )).limit(1);
     if (active) throw conflict("An agent currently owns execution. Wait for it to finish, or manage execution in Paperclip.", { code: "MCP_ACTIVE_EXECUTION" });
   }
+
+  // Human owner asks the producing agent to revise the exact reviewed document
+  // revision. The comment is inert feedback, never an approval or verdict.
+  router.post(
+    "/issues/:id/owner-revision-request",
+    validate(ownerRevisionRequestSchema),
+    async (req, res) => {
+      const id = req.params.id as string;
+      const issue = await getAccessibleResource(
+        req,
+        res,
+        svc.getById(id),
+        "Issue not found",
+      );
+      if (!issue) return;
+      assertBoard(req);
+      if (!(await assertIssueReadAllowed(req, res, issue))) return;
+      const userId = req.actor.userId?.trim();
+      if (!userId) throw forbidden("Board user access required");
+      if (userId !== req.body.expectedAssigneeUserId) {
+        throw forbidden("Only the current human assignee can request a revision");
+      }
+      if (req.actor.source !== "local_implicit") {
+        const membership = await db
+          .select({ membershipRole: companyMemberships.membershipRole })
+          .from(companyMemberships)
+          .where(
+            and(
+              eq(companyMemberships.companyId, issue.companyId),
+              eq(companyMemberships.principalType, "user"),
+              eq(companyMemberships.principalId, userId),
+              eq(companyMemberships.status, "active"),
+            ),
+          )
+          .then((rows) => rows[0] ?? null);
+        if (
+          !membership?.membershipRole ||
+          membership.membershipRole === "viewer"
+        ) {
+          throw forbidden("Active non-viewer company membership required");
+        }
+      }
+      if (!(await assertBoardCommentNotPaused(req, res, issue))) return;
+      // The hand-off reassigns to the producer, so it needs the same
+      // tasks:assign decision (grants plus agent/project/issue policy) as PATCH.
+      await assertCanAssignTasks(req, issue.companyId, {
+        issueId: issue.id,
+        projectId: await resolveAssignmentProjectId({
+          companyId: issue.companyId,
+          projectId: issue.projectId,
+          parentIssueId: issue.parentId,
+        }),
+        parentIssueId: issue.parentId,
+        assigneeAgentId: req.body.producerAgentId,
+        assigneeUserId: null,
+      });
+
+      const actor = getActorInfo(req);
+      const result = await ownerRevisionRequestService(db).request({
+        issueId: issue.id,
+        companyId: issue.companyId,
+        actorUserId: userId,
+        body: req.body.body,
+        clientRequestId: req.body.clientRequestId,
+        producerAgentId: req.body.producerAgentId,
+        documentKey: req.body.documentKey,
+        expectedRevisionId: req.body.expectedRevisionId,
+        sourceTrust: await sourceTrustForActorWrite(issue, actor),
+      });
+
+      // Committed already; like stalled-review decisions, the sync and wake are
+      // best-effort and a retry with the same clientRequestId re-drives the wake.
+      if (!result.replayed) {
+        try {
+          await issueReferencesSvc.syncComment(result.comment.id);
+          await externalObjectsSvc.syncCommentSafely(result.comment.id);
+        } catch (err) {
+          logger.warn(
+            { err, issueId: result.issue.id, commentId: result.comment.id },
+            "failed to sync owner revision request comment",
+          );
+        }
+      }
+
+      let wakeQueued = false;
+      const producerAgentId = req.body.producerAgentId;
+      if (
+        result.issue.status === "todo" &&
+        result.issue.assigneeAgentId === producerAgentId
+      ) {
+        const idempotencyKey = `owner-revision-request:${result.issue.id}:${result.comment.id}`;
+        const userAuthoredNote = {
+          commentId: result.comment.id,
+          authorUserId: userId,
+        };
+        try {
+          // An overlapping retry must not enqueue a second wake. No unique index
+          // covers this key, so the check and enqueue serialize on a
+          // transaction-scoped advisory lock; the enqueue commits on its own
+          // connection before the lock is released. Skipped, failed, or
+          // cancelled rows are not live wakes, so a retry re-drives them.
+          wakeQueued = await db.transaction(async (tx) => {
+            await tx.execute(
+              sql`select pg_advisory_xact_lock(hashtextextended(${idempotencyKey}, 0))`,
+            );
+            const existingWake = await tx
+              .select({ id: agentWakeupRequests.id })
+              .from(agentWakeupRequests)
+              .where(
+                and(
+                  eq(agentWakeupRequests.companyId, result.issue.companyId),
+                  eq(agentWakeupRequests.agentId, producerAgentId),
+                  eq(agentWakeupRequests.idempotencyKey, idempotencyKey),
+                  notInArray(agentWakeupRequests.status, [
+                    "skipped",
+                    "failed",
+                    "cancelled",
+                  ]),
+                ),
+              )
+              .then((rows) => rows[0] ?? null);
+            if (existingWake) return true;
+            const wake = await enqueueOwnerRevisionRequestWakeup(producerAgentId, {
+              source: "assignment",
+              triggerDetail: "system",
+              reason: "issue_assigned",
+              idempotencyKey,
+              requestedByActorType: "user",
+              requestedByActorId: userId,
+              payload: {
+                issueId: result.issue.id,
+                mutation: "owner_revision_request",
+                wakeCommentId: result.comment.id,
+                userAuthoredNote,
+              },
+              contextSnapshot: {
+                issueId: result.issue.id,
+                taskId: result.issue.id,
+                source: "issue.owner_revision_request",
+                wakeReason: "issue_assigned",
+                wakeCommentId: result.comment.id,
+                userAuthoredNote,
+                documentKey: req.body.documentKey,
+                reviewedRevisionId: req.body.expectedRevisionId,
+              },
+            });
+            return wake !== null;
+          });
+        } catch (err) {
+          logger.warn(
+            { err, issueId: result.issue.id, agentId: producerAgentId },
+            "failed to enqueue owner revision request wake",
+          );
+        }
+      }
+
+      res.json({
+        issue: result.issue,
+        comment: result.comment,
+        replayed: result.replayed,
+        wakeQueued,
+      });
+    },
+  );
 
   router.patch(
     "/issues/:id",

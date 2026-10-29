@@ -65,6 +65,7 @@ import {
   setIssueTitleSchema,
   updateIssueSchema,
   stalledReviewDecisionSchema,
+  ownerRevisionRequestSchema,
   createIssueLabelSchema,
   addIssueCommentSchema,
   checkoutIssueSchema,
@@ -1403,6 +1404,7 @@ const BOARD_ONLY_OPERATIONS = new Set([
   "POST /api/issues/{issueId}/reviewed-html",
   "POST /api/issues/{issueId}/reviewed-html/{reviewVersion}/revoke",
   "DELETE /api/issues/{id}/documents/{key}",
+  "POST /api/issues/{id}/owner-revision-request",
   "GET /api/companies/{companyId}/decisions",
   "GET /api/cloud/stacks",
   "GET /api/companies",
@@ -4226,6 +4228,27 @@ registry.registerPath({
   request: {
     params: z.object({ id: z.string() }),
     body: jsonBody(stalledReviewDecisionSchema),
+  },
+  responses: {
+    200: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+    403: r.forbidden,
+    404: r.notFound,
+    409: r.conflict,
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/issues/{id}/owner-revision-request",
+  tags: ["issues"],
+  summary: "Return an in-review issue to its producing agent with owner revision feedback",
+  description:
+    "Requires the current human assignee. Atomically records the user-authored comment and moves the same issue to todo assigned to the agent that authored expectedRevisionId, or returns 409 on status, assignee, or document revision drift. The comment is feedback, not an approval. Retry with the same clientRequestId and body to replay safely.",
+  request: {
+    params: z.object({ id: z.string() }),
+    body: jsonBody(ownerRevisionRequestSchema),
   },
   responses: {
     200: r.ok(),
