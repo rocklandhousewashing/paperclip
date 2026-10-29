@@ -50,8 +50,9 @@ export function buildCodexExecArgs(
   const fastModeRequested = asBoolean(record.fastMode, false);
   const fastModeApplied = fastModeRequested && isCodexLocalFastModeSupported(model);
   const extraArgs = readExtraArgs(record);
-  // Explicit CLI modes/profiles remain deliberate overrides. An omitted
-  // setting uses the same full-auto default as agent creation and onboarding.
+  // Managed credentials and local workspace confinement retain the installed
+  // workspace-write default. Explicit operator modes/profiles stay authoritative.
+  const managedLocalExecution = Boolean(record.managedAiConnection) || record.filesystemScope === "workspace";
   const explicitSandbox = extraArgs.some((arg) =>
     /^(--sandbox(?:=|$)|-s|--profile(?:=|$)|-p|--full-auto$|--yolo$|--dangerously-bypass-approvals-and-sandbox$)/.test(arg)
     || /^(?:(?:--config=|-c=?)\s*)?(?:sandbox_mode|profile)\s*=/.test(arg),
@@ -61,7 +62,7 @@ export function buildCodexExecArgs(
   );
   const bypass = asBoolean(
     record.dangerouslyBypassApprovalsAndSandbox,
-    asBoolean(record.dangerouslyBypassSandbox, !explicitSandbox && !explicitPermissionRestriction && options.networkAccess !== false && DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX),
+    asBoolean(record.dangerouslyBypassSandbox, !managedLocalExecution && !explicitSandbox && !explicitPermissionRestriction && options.networkAccess !== false && DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX),
   );
   const args = ["exec", "--json"];
   if (!bypass && !explicitSandbox) {

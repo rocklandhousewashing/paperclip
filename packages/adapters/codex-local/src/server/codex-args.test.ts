@@ -278,4 +278,20 @@ describe("buildCodexExecArgs", () => {
     expect(args).toEqual(["exec", "--json", "--dangerously-bypass-approvals-and-sandbox", "-"]);
   });
 
+  it.each([
+    { managedAiConnection: { provider: "openai", method: "subscription" } },
+    { filesystemScope: "workspace" },
+  ])("preserves workspace-write by default for managed local config %j", (config) => {
+    const { args } = buildCodexExecArgs(config);
+    expect(args).toContain('sandbox_mode="workspace-write"');
+    expect(args).toContain("sandbox_workspace_write.network_access=true");
+    expect(args).not.toContain("--dangerously-bypass-approvals-and-sandbox");
+  });
+
+  it.each([false, true])("honors an explicit managed bypass setting %s", (bypass) => {
+    const { args } = buildCodexExecArgs({ filesystemScope: "workspace", dangerouslyBypassApprovalsAndSandbox: bypass });
+    expect(args.includes("--dangerously-bypass-approvals-and-sandbox")).toBe(bypass);
+    expect(args.includes('sandbox_mode="workspace-write"')).toBe(!bypass);
+  });
+
 });
