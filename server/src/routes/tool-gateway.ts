@@ -17,6 +17,7 @@ import { ToolGatewayHttpError, type ToolGatewayService } from "../services/tool-
 import { forbidden, HttpError } from "../errors.js";
 import { accessService } from "../services/index.js";
 import { listConnectionLifecycleEvents } from "../services/tool-connection-activity.js";
+import { mcpStructuredContent, mcpTextResult } from "../services/mcp-http.js";
 
 const TOOL_ACTIVITY_EVENT_TYPES = [
   "call_completed",
@@ -177,7 +178,7 @@ async function handleMcpGatewayProtocol(
             : {},
           callerHeaders: headers,
         });
-        res.json({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result, isError: false } });
+        res.json({ jsonrpc: "2.0", id, result: { ...mcpTextResult(result), isError: false } });
         return;
       }
       const result = await toolGateway.executeTool({
@@ -194,13 +195,17 @@ async function handleMcpGatewayProtocol(
       const contentText = typeof resultRecord?.content === "string"
         ? resultRecord.content
         : JSON.stringify(resultRecord?.data ?? result.result ?? null);
+      const data = resultRecord?.data && typeof resultRecord.data === "object" && !Array.isArray(resultRecord.data)
+        ? resultRecord.data as Record<string, unknown>
+        : null;
+      const isMcpResult = data?.transport === "mcp_http" || data?.transport === "local_stdio";
       res.json({
         jsonrpc: "2.0",
         id,
         result: {
           content: [{ type: "text", text: contentText }],
-          structuredContent: resultRecord?.data ?? null,
-          isError: false,
+          ...mcpStructuredContent(isMcpResult ? data!.structuredContent : resultRecord?.data),
+          isError: data?.isError === true || typeof resultRecord?.error === "string",
         },
       });
       return;

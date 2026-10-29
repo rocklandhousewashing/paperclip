@@ -281,3 +281,18 @@ export function forgetMcpHttpSessions(connectionId: string) {
   for (const key of sessions.keys()) if (key.startsWith(`${connectionId}:`)) sessions.delete(key);
   for (const key of initializing.keys()) if (key.startsWith(`${connectionId}:`)) initializing.delete(key);
 }
+
+/** MCP structuredContent is optional, but when present it must be a JSON object. */
+export function mcpStructuredContent(value: unknown): { structuredContent?: Record<string, unknown> } {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return {};
+  return { structuredContent: value as Record<string, unknown> };
+}
+
+export function mcpTextResult(value: unknown) {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify(value) ?? "null" }],
+    ...mcpStructuredContent(value),
+  };
+}

@@ -115,6 +115,7 @@ import {
   readMcpHttpResponse,
   McpHttpResponseError,
   mcpHttpRequestHeaders,
+  mcpStructuredContent,
   parseMcpHttpResponseBody,
 } from "./mcp-http.js";
 import {
@@ -5923,7 +5924,7 @@ export function createToolGatewayService(
       content,
       data: {
         content: record.content,
-        structuredContent: record.structuredContent ?? null,
+        ...mcpStructuredContent(record.structuredContent),
         isError: record.isError === true,
         transport,
         spawnedLocalProcess,
