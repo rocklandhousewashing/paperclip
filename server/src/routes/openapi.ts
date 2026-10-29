@@ -321,6 +321,8 @@ import {
   resolveChatPublicationSchema,
   replaceChatEndpointResourcesSchema,
   updateChatEndpointSchema,
+  registerReviewedHtmlReviewSchema,
+  revokeReviewedHtmlReviewSchema,
 } from "@paperclipai/shared";
 import { aggregatorAppsSyncSchema, aggregatorAppsRefreshSchema, arcadeDiscoverySetupSchema } from "@paperclipai/shared/aggregator-apps";
 import { composioAppsSyncSchema, composioAppsRefreshSchema, composioAppSetupSchema, composioAppAccountSchema } from "@paperclipai/shared/composio-app-setup";
@@ -1396,6 +1398,10 @@ const BOARD_ONLY_OPERATIONS = new Set([
 
   "GET /api/companies/{companyId}/project-repositories",
   "PUT /api/projects/{id}/repositories",
+  "GET /api/issues/{issueId}/reviewed-html",
+  "GET /api/issues/{issueId}/reviewed-html/{reviewVersion}",
+  "POST /api/issues/{issueId}/reviewed-html",
+  "POST /api/issues/{issueId}/reviewed-html/{reviewVersion}/revoke",
   "DELETE /api/issues/{id}/documents/{key}",
   "GET /api/companies/{companyId}/decisions",
   "GET /api/cloud/stacks",
@@ -8079,6 +8085,74 @@ registry.registerPath({
   summary: "Delete an attachment",
   request: { params: z.object({ attachmentId: z.string() }) },
   responses: { 200: r.ok(), 401: r.unauthorized },
+});
+
+// ─── Board-reviewed HTML attachment bytes (board only) ───────────────────────
+
+registry.registerPath({
+  method: "get",
+  path: "/api/issues/{issueId}/reviewed-html",
+  tags: ["issues"],
+  summary: "Get the board-reviewed HTML review summary for an issue (board only)",
+  request: { params: z.object({ issueId: z.string() }) },
+  responses: { 200: r.ok(), 401: r.unauthorized, 403: r.forbidden, 404: r.notFound },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/issues/{issueId}/reviewed-html/{reviewVersion}",
+  tags: ["issues"],
+  summary: "Get the reviewed-byte descriptor for the active review version (board only)",
+  request: { params: z.object({ issueId: z.string(), reviewVersion: z.string() }) },
+  responses: {
+    200: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+    403: r.forbidden,
+    404: r.notFound,
+    409: r.conflict,
+    410: { description: "Review version was revoked or superseded" },
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/issues/{issueId}/reviewed-html",
+  tags: ["issues"],
+  summary: "Register exact board-reviewed HTML attachment bytes (board only)",
+  request: {
+    params: z.object({ issueId: z.string() }),
+    body: jsonBody(registerReviewedHtmlReviewSchema),
+  },
+  responses: {
+    201: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+    403: r.forbidden,
+    404: r.notFound,
+    409: r.conflict,
+    422: r.unprocessable,
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/issues/{issueId}/reviewed-html/{reviewVersion}/revoke",
+  tags: ["issues"],
+  summary: "Revoke the active board-reviewed HTML review (board only)",
+  request: {
+    params: z.object({ issueId: z.string(), reviewVersion: z.string() }),
+    body: jsonBody(revokeReviewedHtmlReviewSchema),
+  },
+  responses: {
+    200: r.ok(),
+    400: r.badRequest,
+    401: r.unauthorized,
+    403: r.forbidden,
+    404: r.notFound,
+    409: r.conflict,
+    422: r.unprocessable,
+  },
 });
 
 // ─── Assets ──────────────────────────────────────────────────────────────────

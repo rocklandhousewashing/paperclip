@@ -197,6 +197,7 @@ import { useStreamlinedUiEnabled } from "../hooks/useStreamlinedUiEnabled";
 import { workModeMetaFor } from "../lib/work-mode-meta";
 import { IssueContinuationHandoff } from "../components/IssueContinuationHandoff";
 import { IssueAttachmentsSection } from "../components/IssueAttachmentsSection";
+import { IssueReviewedHtmlSection } from "../components/IssueReviewedHtmlSection";
 import { IssueDocumentsSection } from "../components/IssueDocumentsSection";
 import { IssuePlanDecompositionsSection } from "../components/IssuePlanDecompositionsSection";
 import { IssueOutputSection } from "../components/issue-output/IssueOutputSection";
@@ -7535,6 +7536,9 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
         onCheckNow={() => checkIssueMonitorNow.mutate()}
         checkingNow={checkIssueMonitorNow.isPending}
       />
+
+      {/* Rendered in both classic and Task Chat headers; opens via ?reviewedHtml=<version>. */}
+      <IssueReviewedHtmlSection companyId={issue.companyId} issueId={issue.id} />
 
       {taskChatShellEnabled ? null : (
         <InlineEditor

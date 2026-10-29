@@ -4658,3 +4658,15 @@ describe("TaskChatThread composer execution controls", () => {
     expect(container.querySelector('[data-testid="task-chat-composer-stop"]')).toBeNull();
   });
 });
+
+it("mounts a live header once only after history is revealed", async () => {
+  const header = <div data-testid="live-header">Private page preview</div>;
+  const props = { issueId: "preview-issue", comments: [], onAdd: async () => {}, threadHeader: header };
+  render(<TaskChatThread {...props} initialHistoryPending />);
+  expect(container.querySelectorAll('[data-testid="live-header"]')).toHaveLength(0);
+  render(<TaskChatThread {...props} initialHistoryPending={false} />);
+  await act(async () => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
+  expect(container.querySelectorAll('[data-testid="live-header"]')).toHaveLength(1);
+});
