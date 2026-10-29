@@ -14,6 +14,7 @@ vi.mock("acpx/runtime", () => ({
 
 const agentId = "11111111-1111-4111-8111-111111111111";
 const companyId = "22222222-2222-4222-8222-222222222222";
+const wakeIssueId = "33333333-3333-4333-8333-333333333333";
 
 const baseAgent = {
   id: agentId,
@@ -82,6 +83,7 @@ const mockBudgetService = vi.hoisted(() => ({
 }));
 
 const mockHeartbeatService = vi.hoisted(() => ({
+  wakeup: vi.fn(),
   listTaskSessions: vi.fn(),
   resetRuntimeSession: vi.fn(),
   getRun: vi.fn(),
@@ -901,6 +903,98 @@ describe("agent permission routes", () => {
       .send({}));
 
     expect(res.status).toBe(403);
+  });
+
+  it("rejects an invalid top-level wakeup UUID before dispatch", async () => {
+    const app = createApp({ type: "board", userId: "operator", source: "session", companyIds: [companyId] });
+    const res = await requestApp(app, (baseUrl) => request(baseUrl)
+      .post(`/api/agents/${agentId}/wakeup`)
+      .send({ issueId: "issue-1", reason: "manual" }));
+
+    expect(res.status).toBe(400);
+    expect(res.body.details).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: ["issueId"] }),
+    ]));
+    expect(mockAgentService.getById).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { name: "bridge shape", body: { issueId: wakeIssueId, reason: "bridge" }, payload: { issueId: wakeIssueId } },
+    { name: "equal issue IDs", body: { issueId: wakeIssueId, payload: { issueId: wakeIssueId } }, payload: { issueId: wakeIssueId } },
+    { name: "owner_room_intake shape", body: { issueId: wakeIssueId, reason: "owner_room_message", idempotencyKey: "owner-room:test-message", payload: { issueId: wakeIssueId, commentId: "test-comment" } }, payload: { issueId: wakeIssueId, commentId: "test-comment" } },
+    { name: "payload only", body: { payload: { issueId: wakeIssueId } }, payload: { issueId: wakeIssueId } },
+    { name: "neither issue ID", body: { reason: "manual" }, payload: null },
+    { name: "unrelated payload fields", body: { issueId: wakeIssueId, payload: { commentId: "test-comment", other: 42 } }, payload: { issueId: wakeIssueId, commentId: "test-comment", other: 42 } },
+    { name: "null payload", body: { issueId: wakeIssueId, payload: null }, payload: { issueId: wakeIssueId } },
+  ])("dispatches $name through the existing wakeup path", async ({ body, payload }) => {
+    mockHeartbeatService.wakeup.mockResolvedValue({ id: "test-run", status: "queued" });
+    const app = createApp({ type: "board", userId: "operator", source: "session", companyIds: [companyId] });
+    const res = await requestApp(app, (baseUrl) => request(baseUrl)
+      .post(`/api/agents/${agentId}/wakeup`).send(body));
+
+    expect(res.status).toBe(202);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledExactlyOnceWith(agentId, expect.objectContaining({
+      source: "on_demand", triggerDetail: "manual", manualUserWake: true,
+      reason: body.reason ?? null, idempotencyKey: body.idempotencyKey ?? null, payload,
+    }));
+  });
+
+  it.each(["44444444-4444-4444-8444-444444444444", null, 123, ""])(
+    "rejects conflicting payload issueId %s without dispatch", async (payloadIssueId) => {
+      const app = createApp({ type: "board", userId: "operator", source: "session", companyIds: [companyId] });
+      const res = await requestApp(app, (baseUrl) => request(baseUrl)
+        .post(`/api/agents/${agentId}/wakeup`)
+        .send({ issueId: wakeIssueId, payload: { issueId: payloadIssueId } }));
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("issueId conflicts with payload.issueId");
+      expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["top-level", "payload"])("preserves board authorization for %s issue context", async (shape) => {
+    mockAccessService.canUser.mockResolvedValue(false);
+    const app = createApp({ type: "board", userId: "member", source: "session", companyIds: [companyId] });
+    const res = await requestApp(app, (baseUrl) => request(baseUrl)
+      .post(`/api/agents/${agentId}/wakeup`)
+      .send(shape === "top-level" ? { issueId: wakeIssueId } : { payload: { issueId: wakeIssueId } }));
+    expect(res.status).toBe(403);
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { type: "board", userId: "outsider", source: "session", companyIds: [] },
+    { type: "agent", agentId: "other-agent", companyId, source: "agent_key" },
+    { type: "agent", agentId, companyId: "other-company", source: "agent_key" },
+  ])("preserves agent/company access for the alias ($type, $source)", async (actor) => {
+    const app = createApp(actor);
+    const res = await requestApp(app, (baseUrl) => request(baseUrl)
+      .post(`/api/agents/${agentId}/wakeup`).send({ issueId: wakeIssueId }));
+    expect(res.status).toBe(actor.type === "agent" && actor.companyId === companyId ? 403 : 404);
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
+  });
+
+  it("preserves agent comment-marker stripping after merging the alias", async () => {
+    mockHeartbeatService.wakeup.mockResolvedValue({ id: "test-run", status: "queued" });
+    const app = createApp({ type: "agent", agentId, companyId, source: "agent_key" });
+    const res = await requestApp(app, (baseUrl) => request(baseUrl)
+      .post(`/api/agents/${agentId}/wakeup`)
+      .send({ issueId: wakeIssueId, payload: { commentId: "forged-comment" } }));
+    expect(res.status).toBe(202);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(agentId, expect.objectContaining({
+      payload: { issueId: wakeIssueId, commentId: undefined, wakeCommentId: undefined, wakeCommentIds: undefined },
+    }));
+  });
+
+  it("does not let the alias override server-derived failed-run context", async () => {
+    const failedRunId = "55555555-5555-4555-8555-555555555555";
+    mockHeartbeatService.getRun.mockResolvedValue({ id: failedRunId, companyId, agentId, status: "failed", contextSnapshot: {} });
+    mockHeartbeatService.wakeup.mockResolvedValue({ id: "retry-run", status: "queued" });
+    const app = createApp({ type: "board", userId: "operator", source: "session", companyIds: [companyId] });
+    const res = await requestApp(app, (baseUrl) => request(baseUrl)
+      .post(`/api/agents/${agentId}/wakeup`)
+      .send({ failedRunId, issueId: wakeIssueId, reason: "retry_failed_run", payload: { commentId: "forged-comment" } }));
+    expect(res.status).toBe(202);
+    expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(agentId, expect.objectContaining({ failedRunId, payload: {} }));
   });
 
   it("blocks agent-authenticated self-updates that set host-executed workspace commands", async () => {

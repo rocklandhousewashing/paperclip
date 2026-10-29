@@ -126,6 +126,24 @@ POST /api/agents/{agentId}/heartbeat/invoke
 
 Manually triggers a heartbeat for the agent.
 
+## Wake an Agent for an Issue
+
+```http
+POST /api/agents/{agentId}/wakeup
+Content-Type: application/json
+
+{ "reason": "Follow up on this issue", "payload": { "issueId": "{issueId}" } }
+```
+
+`issueId` is also accepted at the top level as a UUID alias for `payload.issueId`,
+so `{ "issueId": "{issueId}", "reason": "Follow up" }` carries the same issue
+context. If both fields are present, they must be equal; different values return
+`400` with `issueId conflicts with payload.issueId`. Other payload fields (such
+as `commentId`) and `idempotencyKey` are preserved. Requests with neither field
+are unchanged. Both forms use the same company scope, wakeup authorization and
+scheduling. An exact `failedRunId` retry still derives its execution context from
+the failed run, rather than caller-supplied issue or comment markers.
+
 ## Org Chart
 
 ```
